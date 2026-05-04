@@ -685,6 +685,7 @@ async function init() {
         constructionOverrides = new Set(shared.constructionOverrides || []);
         ithacaDepartTime      = shared.ithacaDepartTime ?? null;
         birdMins              = shared.birdMins || {};
+        if (shared.stopNotes)   stopNotes = shared.stopNotes;
         if (shared.customStops) { customStops = shared.customStops; saveCustomStops(); }
         history.replaceState(null, '', window.location.pathname + window.location.search);
       }
@@ -2088,6 +2089,7 @@ function shareLink() {
     constructionOverrides: [...constructionOverrides],
     ithacaDepartTime,
     birdMins,
+    stopNotes,
     customStops,
   };
   const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(data))));
