@@ -303,6 +303,7 @@ let checked  = new Set();  // species names seen
 let arrivals = {};         // lid → actual arrival (minutes from midnight)
 let birdMins = {};         // lid → overridden bird minutes
 let vstatus  = {};         // lid → 'arrived'|'done'|'skipped'
+let stopNotes = {};        // lid → freeform note string
 let foodAdded = new Set();
 let spFilter  = 'all';
 let mapInited = false;
@@ -384,7 +385,7 @@ const FOOD_HOURS = {
 // =====================================================================
 function save() {
   localStorage.setItem(SK, JSON.stringify({
-    checked:[...checked], arrivals, birdMins, vstatus,
+    checked:[...checked], arrivals, birdMins, vstatus, stopNotes,
     foodAdded:[...foodAdded], rainMode, expanded:[...expanded],
     syncedSp:[...syncedSp], timeConstraints, routeOrder:[...routeOrder],
     removedStops:[...removedStops], ithacaDepartTime,
@@ -407,13 +408,14 @@ function loadSave() {
     if (s.removedStops)     removedStops     = new Set(s.removedStops);
     if (s.ithacaDepartTime != null) ithacaDepartTime = s.ithacaDepartTime;
     if (s.constructionOverrides) constructionOverrides = new Set(s.constructionOverrides);
+    if (s.stopNotes)           stopNotes           = s.stopNotes;
   } catch(e) {}
 }
 function confirmReset() {
   if (!confirm('Reset all checkoffs and stop statuses?')) return;
   localStorage.removeItem(SK);
   [checked, foodAdded, expanded, showAllSp, syncedSp, removedStops, constructionOverrides].forEach(s => s.clear());
-  arrivals = {}; birdMins = {}; vstatus = {};
+  arrivals = {}; birdMins = {}; vstatus = {}; stopNotes = {};
   renderRoute(); renderAllSp(); updateBadge(); renderRemovedStopsList();
 }
 
@@ -1278,6 +1280,7 @@ function renderBody(lid, isFood, se, foodEstArr=null) {
   </div>
   ${se?.late ? `<div style="font-size:11px;color:#ef4444;padding:0 0 4px 2px">⚠ Estimated arrival ${fmt(se.arriveMin)} is after your cutoff of ${fmt(tc.notAfter)}</div>` : ''}
   ${(()=>{const rec=site.recommended_not_before;if(rec==null||tc?.notBefore!=null)return'';const rh=Math.floor(rec/60),rm=rec%60,rs=(rh>=12?rh-12:rh||12)+':'+(rm<10?'0':'')+rm+(rh>=12?'pm':'am');return`<div style="font-size:10px;color:var(--muted);padding:0 0 4px 2px">Suggested for evening species: <a href="#" style="color:var(--blue)" onclick="event.preventDefault();setTimeConstraint('${lid}','${String(rh).padStart(2,'0')}:${String(rm).padStart(2,'0')}');renderRoute()">${rs}</a></div>`;})()}
+  <textarea id="note-${lid}" placeholder="Notes…" style="width:100%;box-sizing:border-box;border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:12px;font-family:inherit;color:var(--text);background:var(--card);resize:vertical;min-height:52px;margin-bottom:8px" onchange="setNote('${lid}',this.value)" onclick="event.stopPropagation()">${stopNotes[lid]||''}</textarea>
   <div class="th">
     <span>Targets: ${unseen.length} unseen of ${allSpp.length}</span>
     <span style="margin-left:auto;display:flex;gap:4px;align-items:center">
@@ -1370,6 +1373,7 @@ function checkAllAt(lid){
 }
 function setBm(lid,val) { birdMins[lid]=parseInt(val)||20; save(); renderRoute(); }
 function resetBm(lid) { delete birdMins[lid]; save(); renderRoute(); }
+function setNote(lid,val) { if(val.trim()) stopNotes[lid]=val; else delete stopNotes[lid]; save(); }
 function toggleFood(lid){
   if (foodAdded.has(lid)) { foodAdded.delete(lid); removeFoodMarker(lid); }
   else { foodAdded.add(lid); addFoodMarker(lid); }
@@ -2105,6 +2109,7 @@ function exportSetup() {
     constructionOverrides: [...constructionOverrides],
     ithacaDepartTime,
     birdMins,
+    stopNotes,
     customStops,
   };
   const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
@@ -2130,6 +2135,7 @@ function importSetup(input) {
       constructionOverrides = new Set(data.constructionOverrides || []);
       ithacaDepartTime      = data.ithacaDepartTime ?? null;
       birdMins              = data.birdMins || {};
+      if (data.stopNotes)   stopNotes = data.stopNotes;
       if (data.customStops) { customStops = data.customStops; saveCustomStops(); }
       setRoute();
       save(); renderRoute(); refreshMapPolyline(); renderCustomStopsList(); renderRemovedStopsList();
