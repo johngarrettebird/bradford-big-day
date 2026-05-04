@@ -217,6 +217,7 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
     </label>
   </div>
   <div class="sync-row">
+    <button class="sync-btn-sm" onclick="shareLink()">🔗 Share link</button>
     <button class="sync-btn-sm" onclick="exportSetup()">📤 Export setup</button>
     <label class="sync-btn-sm" style="cursor:pointer" title="Import a route setup from a teammate">
       📥 Import setup
@@ -654,6 +655,24 @@ async function init() {
   }
   if (rainMode) document.getElementById('rain-btn').classList.add('on');
   loadCustomStops();
+  // Apply shared route state from URL hash (overrides localStorage)
+  const _hash = window.location.hash.slice(1);
+  if (_hash) {
+    try {
+      const shared = JSON.parse(decodeURIComponent(escape(atob(_hash))));
+      if (Array.isArray(shared.routeOrder)) {
+        _savedRouteOrder      = shared.routeOrder;
+        removedStops          = new Set(shared.removedStops || []);
+        timeConstraints       = shared.timeConstraints || {};
+        foodAdded             = new Set(shared.foodAdded || []);
+        constructionOverrides = new Set(shared.constructionOverrides || []);
+        ithacaDepartTime      = shared.ithacaDepartTime ?? null;
+        birdMins              = shared.birdMins || {};
+        if (shared.customStops) { customStops = shared.customStops; saveCustomStops(); }
+        history.replaceState(null, '', window.location.pathname + window.location.search);
+      }
+    } catch(_) {}
+  }
   setRoute();
   // Restore user's saved ordering and honour manual removals
   if (_savedRouteOrder) {
@@ -2031,6 +2050,26 @@ function toggleAutoSync() {
 // =====================================================================
 // EXPORT / IMPORT ROUTE SETUP
 // =====================================================================
+function shareLink() {
+  const data = {
+    version: 1,
+    routeOrder: [...routeOrder],
+    removedStops: [...removedStops],
+    timeConstraints,
+    foodAdded: [...foodAdded],
+    constructionOverrides: [...constructionOverrides],
+    ithacaDepartTime,
+    birdMins,
+    customStops,
+  };
+  const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(data))));
+  const url = window.location.href.split('#')[0] + '#' + encoded;
+  navigator.clipboard.writeText(url).then(() => {
+    setSyncStatus('✓ Link copied! Send to teammates — they open it and get your route.');
+  }).catch(() => {
+    prompt('Copy this link:', url);
+  });
+}
 function exportSetup() {
   const data = {
     version: 1,
