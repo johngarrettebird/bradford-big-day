@@ -426,8 +426,9 @@ function fmt(min) {
   return `${hr}:${m.toString().padStart(2,'0')}${ap}`;
 }
 function aerialUrl(lat, lon) {
-  const d = 0.003;
-  return `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=${lon-d},${lat-d},${lon+d},${lat+d}&bboxSR=4326&size=320,180&format=jpg&f=image`;
+  const dlat = 0.004;  // ~440m N-S
+  const dlon = dlat * 1.6 / Math.cos(lat * Math.PI / 180);  // 16:10 aspect, corrected for latitude
+  return `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=${lon-dlon},${lat-dlat},${lon+dlon},${lat+dlat}&bboxSR=4326&size=320,200&format=jpg&f=image`;
 }
 function fmtRange(startMin, durMin) {
   const endMin = startMin + durMin;
@@ -1114,7 +1115,7 @@ function renderRoute() {
         ${!isFood ? `<div class="mobile-reorder"><button onclick="event.stopPropagation();moveStop('${lid}',-1)" ${isFirst?'disabled':''}>↑</button><button onclick="event.stopPropagation();moveStop('${lid}',1)" ${isLast?'disabled':''}>↓</button></div>` : ''}
         <span class="snum">${++stopNum}</span>
         <span class="sicon">${icon}</span>
-        <div class="snwrap"><div class="sname">${/^L\d+$/.test(lid) ? `<a href="https://ebird.org/hotspot/${lid}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="color:inherit;text-decoration:underline;text-decoration-color:var(--muted);text-underline-offset:2px">${name}</a>` : name}</div><div class="ssub">${sub}</div></div>
+        <div class="snwrap"><div class="sname">${site.hotspot ? `<a href="https://ebird.org/hotspot/${lid}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="color:inherit;text-decoration:underline;text-decoration-color:var(--muted);text-underline-offset:2px">${name}</a>` : name}</div><div class="ssub">${sub}</div></div>
         ${badge?`<span class="${badgeCls}">${badge}</span>`:''}
         <span class="schev${isOpen?' open':''}">▼</span>
       </div>
@@ -1235,9 +1236,9 @@ function renderBody(lid, isFood, se, foodEstArr=null) {
 
   const hiddenCnt = !showAll ? seenSp.length : 0;
 
-  const isHotspot = /^L\d+$/.test(lid);
+  const isHotspot = !!site.hotspot;
   const aerialImg = site.lat && site.lon
-    ? `<img src="${aerialUrl(site.lat, site.lon)}" loading="lazy" style="width:100%;height:120px;object-fit:cover;border-radius:6px;display:block;margin-bottom:10px" alt="Aerial view of ${name}">`
+    ? `<img src="${aerialUrl(site.lat, site.lon)}" loading="lazy" style="width:100%;height:auto;border-radius:6px;display:block;margin-bottom:10px" alt="Aerial view of ${name}">`
     : '';
   const aerialHtml = aerialImg
     ? (isHotspot
