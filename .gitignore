@@ -1,0 +1,11 @@
+barchart_data.json
+*.py
+*.csv
+*.xlsx
+*.zip
+ebd_*
+MyEBirdData*
+*.PNG
+*.png
+*.log
+.DS_Store

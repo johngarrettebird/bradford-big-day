@@ -1,0 +1,2093 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Bradford Big Day — May 9</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+:root {
+  --green:#2d6a4f;--green-l:#4ade80;--amber:#f59e0b;--blue:#38bdf8;
+  --purple:#a78bfa;--red:#ef4444;--bg:#0f172a;--surface:#1e293b;
+  --card:#273549;--text:#e2e8f0;--muted:#64748b;--border:#2d3f55;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px;}
+#header{background:var(--surface);border-bottom:1px solid var(--border);padding:9px 14px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:200;}
+#header-title{font-size:15px;font-weight:700;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+#spp-badge{background:var(--green);color:#fff;padding:4px 11px;border-radius:20px;font-weight:700;font-size:14px;white-space:nowrap;}
+#rain-btn{padding:4px 9px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;font-size:12px;}
+#rain-btn.on{border-color:var(--blue);color:var(--blue);background:#0c2340;}
+#wx-bar{padding:6px 14px;font-size:12px;color:var(--muted);border-bottom:1px solid var(--border);}
+#wx-bar.rainy{background:#0d1e33;color:#7dd3fc;}
+#sun-bar{padding:5px 14px;font-size:11px;color:var(--muted);border-bottom:1px solid var(--border);display:flex;gap:16px;flex-wrap:wrap;}
+.sun-item{display:flex;align-items:center;gap:4px;white-space:nowrap;}
+.sun-item strong{color:var(--text);}
+#tabs{display:flex;background:var(--surface);border-bottom:1px solid var(--border);}
+.tab{flex:1;padding:9px 2px;text-align:center;border:none;background:none;color:var(--muted);cursor:pointer;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;border-bottom:2px solid transparent;}
+.tab.on{color:var(--text);border-bottom-color:var(--blue);}
+.pane{display:none;padding-bottom:80px;}
+.pane.on{display:block;}
+/* food row */
+#food-row{display:flex;gap:8px;flex-wrap:wrap;padding:10px 14px;border-bottom:1px solid var(--border);background:#141f2e;}
+#food-row span{font-size:11px;color:var(--muted);align-self:center;}
+.food-chip{padding:5px 10px;border-radius:20px;border:1px solid var(--border);background:var(--card);color:var(--text);cursor:pointer;font-size:12px;}
+.food-chip.added{border-color:var(--amber);background:#1c1a0a;color:var(--amber);}
+/* stop cards */
+.stop{border-bottom:1px solid var(--border);}
+.stop.current{border-left:3px solid var(--blue);}
+.stop.visited .shead{opacity:.55;}
+.stop.skipped{opacity:.3;}
+.shead{display:flex;align-items:center;gap:8px;padding:10px 14px;cursor:pointer;user-select:none;}
+.snum{font-size:12px;font-weight:700;color:var(--muted);width:16px;flex-shrink:0;text-align:right;}
+.depart-bar{display:flex;align-items:center;gap:10px;padding:9px 14px;background:var(--card);border:1px solid #4c1d95;border-radius:8px;margin:0 0 8px;flex-wrap:wrap;}
+.depart-bar .depart-label{font-size:13px;font-weight:600;color:#c4b5fd;white-space:nowrap;}
+.depart-bar .depart-detail{font-size:11px;color:var(--muted);flex:1;min-width:0;}
+.drag-handle{cursor:grab;color:var(--muted);font-size:16px;padding:0 4px 0 0;flex-shrink:0;line-height:1;user-select:none;}
+.drag-handle:active{cursor:grabbing;}
+.stop.dragging{opacity:.35;}
+.stop.drop-above{box-shadow:0 -3px 0 #38bdf8;}
+.stop.drop-below{box-shadow:0 3px 0 #38bdf8;}
+.pin-badge{color:#f59e0b;}
+.sun-divider{display:flex;align-items:center;gap:8px;padding:3px 14px;}
+.sun-div-line{flex:1;height:1px;background:var(--border);}
+.sun-div-label{font-size:11px;color:#f59e0b;white-space:nowrap;}
+.constr-divider{display:flex;align-items:center;gap:8px;padding:3px 14px;}
+.constr-div-line{flex:1;height:1px;background:#f97316;}
+.constr-div-label{font-size:11px;color:#f97316;white-space:nowrap;font-weight:600;}
+.constr-banner{background:#431407;border:1px solid #f97316;border-radius:6px;padding:7px 12px;margin:0 0 10px;font-size:12px;color:#fed7aa;line-height:1.5;}
+.tc-row{display:flex;align-items:center;gap:6px;margin:6px 0 2px;font-size:11px;}
+.tc-input{background:var(--card);border:1px solid var(--border);border-radius:4px;color:var(--text);padding:2px 6px;font-size:12px;width:90px;}
+.sicon{font-size:18px;flex-shrink:0;}
+.snwrap{flex:1;min-width:0;}
+.sname{font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ssub{font-size:11px;color:var(--muted);margin-top:1px;}
+.sbadge{font-size:11px;font-weight:700;padding:2px 7px;border-radius:10px;background:var(--bg);flex-shrink:0;border:1px solid var(--border);}
+.sbadge.zero{color:var(--muted);}
+.schev{color:var(--muted);font-size:10px;flex-shrink:0;transition:transform .2s;}
+.schev.open{transform:rotate(180deg);}
+.sbody{display:none;padding:0 14px 12px 14px;}
+/* stop actions */
+.sact{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;}
+.sact button{padding:5px 10px;border-radius:6px;border:1px solid var(--border);background:var(--card);color:var(--text);cursor:pointer;font-size:12px;}
+.btn-here{border-color:var(--blue)!important;color:var(--blue)!important;}
+.btn-done{border-color:var(--green)!important;color:var(--green-l)!important;}
+.btn-skip{border-color:var(--red)!important;color:var(--red)!important;}
+.trow{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--muted);margin-bottom:8px;flex-wrap:wrap;}
+.bmin{width:46px;padding:2px 6px;background:var(--card);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px;text-align:center;}
+/* species inside stop */
+.th{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:8px 0 4px;display:flex;justify-content:space-between;}
+.splist{display:flex;flex-direction:column;gap:1px;}
+/* species rows use data attributes — NO onclick with species name strings */
+.sr{display:flex;align-items:center;gap:8px;padding:4px 5px;border-radius:4px;cursor:pointer;}
+.sr:hover{background:var(--card);}
+.sr.ck{opacity:.45;}
+.sr.uniq .sn::after{content:' ★';color:var(--amber);font-size:9px;}
+.sr.rare .sn::after{content:' ◆';color:var(--purple);font-size:9px;}
+.scb{width:16px;height:16px;cursor:pointer;accent-color:var(--green);flex-shrink:0;pointer-events:none;}
+.sn{font-size:13px;flex:1;}
+.sflag{font-size:10px;color:var(--muted);}
+/* frequency tier dots */
+.ftier{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-right:2px;}
+.ftier.common  {background:#4ade80;}
+.ftier.likely  {background:#fbbf24;}
+.ftier.possible{background:#60a5fa;}
+.ftier.uncommon{background:#475569;}
+/* all-species freq badge */
+.asfreq{font-size:10px;padding:1px 5px;border-radius:8px;flex-shrink:0;}
+.asfreq.common  {background:#14532d;color:#4ade80;}
+.asfreq.likely  {background:#451a03;color:#fbbf24;}
+.asfreq.possible{background:#1e3a5f;color:#60a5fa;}
+.asfreq.uncommon{background:#1e293b;color:#475569;}
+/* map */
+#map{height:calc(100vh - 130px);}
+.mp{font-size:12px;line-height:1.5;}
+.mp strong{display:block;margin-bottom:2px;}
+/* species tab */
+#spearch-wrap{position:sticky;top:0;z-index:10;background:var(--bg);}
+#spearch{width:100%;padding:10px 14px;background:var(--surface);border:none;border-bottom:1px solid var(--border);color:var(--text);font-size:14px;}
+#spearch::placeholder{color:var(--muted);}
+#sp-filter-row{display:flex;gap:6px;padding:8px 14px;flex-wrap:wrap;border-bottom:1px solid var(--border);}
+.spf{padding:4px 10px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;font-size:11px;}
+.spf.on{border-color:var(--blue);color:var(--blue);background:#0c2340;}
+#allsplist{padding:2px 14px 0;}
+/* all-species rows also use data attributes */
+.asr{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #1c2a3a;cursor:pointer;}
+.ascb{width:18px;height:18px;accent-color:var(--green);pointer-events:none;}
+.asname{flex:1;font-size:13px;}
+.asname.ck{text-decoration:line-through;color:var(--muted);}
+.assites{font-size:10px;color:var(--muted);max-width:140px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.asflag{font-size:11px;}
+.asnr{font-size:10px;color:var(--muted);min-width:20px;text-align:right;flex-shrink:0;}
+.srnr{font-size:10px;color:var(--muted);min-width:16px;text-align:right;flex-shrink:0;margin-right:2px;}
+#sp-sort-row{display:flex;align-items:center;gap:6px;padding:5px 14px 7px;border-bottom:1px solid var(--border);}
+.spsort{padding:3px 8px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;font-size:11px;}
+.spsort.on{border-color:var(--blue);color:var(--blue);background:#0c2340;}
+/* stats */
+#stats-body{padding:14px;}
+.stcard{background:var(--card);border-radius:8px;padding:12px;margin-bottom:10px;}
+.sttitle{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:6px;}
+.stval{font-size:30px;font-weight:700;}
+.strow{display:flex;gap:10px;margin-bottom:10px;}
+.strow .stcard{flex:1;}
+.hrow{display:flex;align-items:center;gap:8px;margin-bottom:5px;font-size:12px;}
+.hbar-bg{flex:1;height:5px;border-radius:3px;background:var(--border);}
+.hbar-fg{height:5px;border-radius:3px;}
+#reset-btn{position:fixed;bottom:14px;right:14px;background:var(--surface);border:1px solid var(--border);color:var(--muted);padding:7px 12px;border-radius:8px;cursor:pointer;font-size:11px;z-index:150;}
+.legend{display:flex;gap:12px;flex-wrap:wrap;padding:8px 14px 4px;font-size:11px;color:var(--muted);border-top:1px solid var(--border);}
+#loading{padding:40px 20px;text-align:center;color:var(--muted);}
+/* Sync panel */
+#sync-panel{display:none;background:#0d1e33;border-bottom:1px solid #1d3454;padding:10px 14px;font-size:12px;}
+#sync-panel.on{display:block;}
+.sync-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;}
+.sync-label{color:var(--muted);white-space:nowrap;font-size:11px;}
+.sync-input{flex:1;min-width:120px;padding:4px 8px;background:var(--card);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px;}
+.sync-btn-sm{padding:4px 10px;border-radius:6px;border:1px solid #1d5fa0;background:#0c2340;color:#7dd3fc;cursor:pointer;font-size:12px;white-space:nowrap;}
+.sync-btn-sm.on{background:#1a3d6e;border-color:#3b82f6;}
+#sync-status{font-size:11px;color:var(--muted);}
+/* Legend */
+#legend-btn{position:fixed;bottom:14px;left:14px;background:var(--surface);border:1px solid var(--border);color:var(--muted);width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:13px;font-weight:700;z-index:150;display:flex;align-items:center;justify-content:center;padding:0;}
+#legend-overlay{display:none;position:fixed;inset:0;z-index:300;background:rgba(0,0,0,.5);}
+#legend-overlay.on{display:block;}
+#legend-box{position:absolute;bottom:52px;left:14px;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;width:290px;max-height:82vh;overflow-y:auto;font-size:12px;line-height:1.7;box-shadow:0 4px 24px rgba(0,0,0,.7);}
+#legend-box h3{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:10px 0 4px;}
+#legend-box h3:first-child{margin-top:0;}
+.lrow{display:flex;align-items:center;gap:8px;margin-bottom:2px;}
+.ldot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+/* Food hours */
+.food-hours{color:#94a3b8;}
+.food-hours.verified{color:#4ade80;}
+.food-warn{color:#fbbf24;}
+/* Mobile reorder buttons — hidden on pointer devices, shown on touch */
+.mobile-reorder{display:none;gap:4px;}
+.mobile-reorder button{padding:3px 9px;border-radius:6px;border:1px solid var(--border);background:var(--card);color:var(--text);cursor:pointer;font-size:14px;line-height:1.4;}
+.mobile-reorder button:disabled{opacity:.3;}
+@media (hover:none) {
+  .drag-handle{display:none;}
+  .mobile-reorder{display:flex !important;}
+}
+/* Larger tap targets and stacked sync panel on small screens */
+@media (max-width:500px) {
+  .sact button{min-height:36px;padding:7px 12px;font-size:13px;}
+  .tab{padding:11px 2px;font-size:12px;}
+  .shead{padding:12px 14px;}
+  .sync-row{flex-direction:column;align-items:stretch;}
+  .sync-input{min-width:unset;}
+}
+</style>
+</head>
+<body>
+
+<div id="header">
+  <div id="header-title">Bradford Big Day — May 9</div>
+  <div id="spp-badge">0 spp</div>
+  <button id="rain-btn" onclick="toggleRain()">🌧 Rain</button>
+  <button id="sync-toggle" onclick="toggleSyncPanel()" title="eBird sync" style="padding:4px 9px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;font-size:12px;">🔄 Sync</button>
+</div>
+<div id="wx-bar">Fetching May 9 forecast…</div>
+<div id="sun-bar">Fetching sun times…</div>
+<div id="sync-panel">
+  <div class="sync-row">
+    <span class="sync-label">API key:</span>
+    <input class="sync-input" id="sync-key" type="password" placeholder="eBird API key…" oninput="saveSyncSettings()">
+    <span class="sync-label">Display name:</span>
+    <input class="sync-input" id="sync-user" placeholder="optional — as shown on your eBird profile" oninput="saveSyncSettings()">
+    <span class="sync-label">Date:</span>
+    <input class="sync-input" id="sync-date" type="date" style="flex:0 0 auto;width:130px" oninput="saveSyncSettings()">
+  </div>
+  <div class="sync-row">
+    <span class="sync-label">SubID(s):</span>
+    <input class="sync-input" id="sync-subids" placeholder="S123456789 — paste after submitting each eBird checklist">
+    <button class="sync-btn-sm" onclick="syncSubIds()">📋 Fetch checklist</button>
+  </div>
+  <div class="sync-row">
+    <span class="sync-label">Add stop:</span>
+    <input class="sync-input" id="custom-stop-url" placeholder="ebird.org/checklist/S… · L123456 · or: Name, lat, lon" list="personal-loc-list" autocomplete="off">
+    <datalist id="personal-loc-list"></datalist>
+    <button class="sync-btn-sm" onclick="addCustomStop()">+ Add to route</button>
+  </div>
+  <div id="custom-stops-list" style="display:none;padding:2px 0 4px;"></div>
+  <div id="removed-stops-list" style="display:none;padding:2px 0 4px;"></div>
+  <div class="sync-row">
+    <button class="sync-btn-sm" onclick="syncEbird()">🔄 County API sync</button>
+    <button class="sync-btn-sm" id="autosync-btn" onclick="toggleAutoSync()">⏱ Auto 5min</button>
+    <label class="sync-btn-sm" style="cursor:pointer" title="Import your eBird day list CSV">
+      📂 Import CSV
+      <input type="file" id="csv-import" accept=".csv" style="display:none" onchange="importCSV(this)">
+    </label>
+  </div>
+  <div class="sync-row">
+    <button class="sync-btn-sm" onclick="exportSetup()">📤 Export setup</button>
+    <label class="sync-btn-sm" style="cursor:pointer" title="Import a route setup from a teammate">
+      📥 Import setup
+      <input type="file" accept=".json" style="display:none" onchange="importSetup(this)">
+    </label>
+    <span id="sync-status">Share route config with teammates · or import a setup file</span>
+  </div>
+</div>
+<div id="tabs">
+  <button class="tab on" id="tab-route"  onclick="showTab('route',this)">Route</button>
+  <button class="tab"    id="tab-map"    onclick="showTab('map',this)">Map</button>
+  <button class="tab"    id="tab-species"onclick="showTab('species',this)">Species</button>
+  <button class="tab"    id="tab-stats"  onclick="showTab('stats',this)">Stats</button>
+</div>
+
+<div id="pane-route"   class="pane on"><div id="loading">Loading…</div></div>
+<div id="pane-map"     class="pane"><div id="map"></div></div>
+<div id="pane-species" class="pane">
+  <div id="spearch-wrap">
+    <input type="text" id="spearch" placeholder="Search species…" oninput="filterSpecies()">
+    <div id="sp-filter-row">
+      <button class="spf on" onclick="setSPFilter('all',this)">All</button>
+      <button class="spf"    onclick="setSPFilter('unseen',this)">Not yet</button>
+      <button class="spf"    onclick="setSPFilter('seen',this)">Seen ✓</button>
+      <button class="spf"    onclick="setSPFilter('nocturnal',this)">🌙 Night</button>
+    </div>
+    <div id="sp-sort-row">
+      <span style="font-size:11px;color:var(--muted)">Sort:</span>
+      <button class="spsort on" id="spsort-freq"  onclick="setSPSort('freq')">Freq</button>
+      <button class="spsort"    id="spsort-taxon" onclick="setSPSort('taxon')">Taxon</button>
+    </div>
+  </div>
+  <div id="allsplist"></div>
+</div>
+<div id="pane-stats" class="pane"><div id="stats-body"></div></div>
+
+<button id="reset-btn" onclick="confirmReset()">↺ Reset Day</button>
+<button id="legend-btn" onclick="toggleLegend()" title="Show legend">?</button>
+<div id="legend-overlay" onclick="toggleLegend()">
+  <div id="legend-box" onclick="event.stopPropagation()">
+    <h3>Frequency Dots</h3>
+    <div class="lrow"><span class="ldot" style="background:#4ade80"></span><span><b>Common</b> — ≥15% of historical May checklists</span></div>
+    <div class="lrow"><span class="ldot" style="background:#fbbf24"></span><span><b>Likely</b> — 5–14% of May checklists</span></div>
+    <div class="lrow"><span class="ldot" style="background:#60a5fa"></span><span><b>Possible</b> — 1–4% of May checklists</span></div>
+    <div class="lrow"><span class="ldot" style="background:#475569"></span><span><b>Uncommon</b> — &lt;1% of May checklists</span></div>
+    <div class="lrow"><span style="display:inline-block;width:10px"></span><span style="color:var(--muted)">No dot = no historical data for May 7–11</span></div>
+    <div style="font-size:10px;color:var(--muted);margin-top:2px">Source: eBird API, May 7–11, 2018–2025, Bradford Co. (275 checklists). Per-location frequencies used at Mt. Pisgah (15 checklists); county-level elsewhere.</div>
+    <h3>Species Markers</h3>
+    <div class="lrow"><span style="color:var(--amber);font-size:11px">★</span><span>Only recorded at this stop (exclusive)</span></div>
+    <div class="lrow"><span style="color:var(--purple);font-size:11px">◆</span><span>Recorded at ≤3 stops (rare on route)</span></div>
+    <div class="lrow"><span>🌙</span><span>Active before dawn — owls, nightjars</span></div>
+    <div class="lrow"><span>🌅</span><span>Active at dusk</span></div>
+    <h3>Stop Sub-line Counts</h3>
+    <div class="lrow"><span style="color:#4ade80">●N</span><span>N unseen species with ≥15% frequency</span></div>
+    <div class="lrow"><span style="color:#fbbf24">●N</span><span>N unseen species with 5–14% frequency</span></div>
+    <div class="lrow"><span>★N</span><span>N exclusive species still to be found</span></div>
+    <h3>Habitat Icons</h3>
+    <div class="lrow"><span>🌳</span><span>Park / woodland edge</span></div>
+    <div class="lrow"><span>🌲</span><span>Forest interior</span></div>
+    <div class="lrow"><span>🦢</span><span>Marsh / wetland</span></div>
+    <div class="lrow"><span>🌊</span><span>River / stream</span></div>
+    <div class="lrow"><span>🦆</span><span>Lake / reservoir</span></div>
+    <div class="lrow"><span>🐦</span><span>Fluddle / shorebird pool</span></div>
+    <div class="lrow"><span>📍</span><span>General / roadside</span></div>
+    <div class="lrow"><span>🍽️</span><span>Food stop</span></div>
+    <h3>Badges</h3>
+    <div class="lrow"><span style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:2px 7px;font-size:10px">4 / 12</span><span>4 unseen of 12 target species</span></div>
+    <div class="lrow"><span style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:2px 7px;font-size:10px;color:var(--muted)">✓ done</span><span>All targets seen here</span></div>
+    <div style="text-align:right;margin-top:10px">
+      <button onclick="toggleLegend()" style="padding:4px 12px;border-radius:6px;border:1px solid var(--border);background:var(--card);color:var(--text);cursor:pointer;font-size:12px">Close</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// =====================================================================
+// STATE
+// =====================================================================
+let D = null;            // loaded JSON data
+let rainMode = false;
+let checked  = new Set();  // species names seen
+let arrivals = {};         // lid → actual arrival (minutes from midnight)
+let birdMins = {};         // lid → overridden bird minutes
+let vstatus  = {};         // lid → 'arrived'|'done'|'skipped'
+let foodAdded = new Set();
+let spFilter  = 'all';
+let mapInited = false;
+let lmap = null;
+let foodMarkers = {};
+let stopMarkers = {};
+let routePolyline = null;
+let osrmTimer = null;
+let osrmCacheKey = null;
+let constrLayer = null;
+let routeOrder = [];       // ordered lid array (current mode)
+let expanded = new Set();  // expanded stop lids
+let showAllSp = new Set(); // stops showing already-checked species too
+let syncedSp  = new Set(); // species added via eBird sync
+let autoSyncInterval = null;
+let lastSyncTime = null;
+let ebirdTaxonomy = null; // speciesCode → comName, lazy-loaded
+let customStops = [];     // [{lid, name, lat, lon, subId}] — user-added locations
+let removedStops = new Set(); // lids removed from route during planning
+let dragSrcLid = null;
+let ithacaDepartTime = null; // minutes since midnight, null = no Ithaca departure
+let timeConstraints = {}; // lid → {notBefore?: minutes, notAfter?: minutes}
+let _savedRouteOrder = null;
+let sunTimes = null;
+let hourlyWx = null;     // array[24] of {temp,prob,code,wind} for May 9
+const WX_ICONS = {0:'☀️',1:'🌤',2:'⛅',3:'☁️',45:'🌫',51:'🌦',53:'🌦',55:'🌧',
+                  61:'🌧',63:'🌧',65:'🌧',80:'🌦',82:'🌧',95:'⛈'};
+let constructionOverrides = new Set(); // "lid1|lid2" legs that skip the construction bypass
+let spSortMode  = 'freq';  // 'freq' | 'taxon' — All Species pane
+let stopSortMode = {};     // lid → 'freq' | 'taxon'
+
+const SUN_EVENTS = [
+  {key:'civil_twilight_begin', icon:'🌄', label:'Civil dawn'},
+  {key:'sunrise',              icon:'☀️',  label:'Sunrise'},
+  {key:'sunset',               icon:'🌇', label:'Sunset'},
+  {key:'civil_twilight_end',   icon:'🌆', label:'Civil dusk'},
+];
+
+const SK = 'bradbigday3';
+const HCOLORS = {
+  park:'#22c55e',forest:'#16a34a',marsh:'#06b6d4',river:'#3b82f6',
+  lake:'#818cf8',fluddle:'#f59e0b',general:'#94a3b8',food:'#f97316'
+};
+
+// Construction zone: Rt. 6 / Golden Mile Rd, Towanda S. Main St → Wysox Rt. 187
+// Single-lane flagging 6am–7pm, May 6–11 2026
+const CONSTRUCTION = {
+  active: true,
+  label:  'Rt. 6 construction (Golden Mile Rd, Towanda→Wysox)',
+  detail: 'Single-lane flagging 6am–7pm, ~May 6–11',
+  barrierLon: -76.42,
+  latMin: 41.73,
+  latMax: 41.82,
+  // Bypass waypoint forced into OSRM requests and drive-time estimates when
+  // a leg would cross the barrier. Placed on Ghent Hill Rd (Sheshequin Twp),
+  // north of the construction zone at the same longitude.
+  bypassPt: {lat: 41.871, lon: -76.417},
+};
+function crossesConstruction(lat1, lon1, lat2, lon2) {
+  if (!CONSTRUCTION.active) return false;
+  const b = CONSTRUCTION.barrierLon;
+  if ((lon1 <= b) === (lon2 <= b)) return false; // same side
+  const t = (b - lon1) / (lon2 - lon1);
+  const latAt = lat1 + t * (lat2 - lat1);
+  return latAt >= CONSTRUCTION.latMin && latAt <= CONSTRUCTION.latMax;
+}
+
+// Restaurant hours (Saturday May 9)
+const ITHACA_ORIGIN = {lat: 42.444, lon: -76.502, label: 'Ithaca, NY'};
+
+const FOOD_HOURS = {
+  'food_piphers':      { opens: 6*60,  closes: 14*60, label: '6am–2pm' },
+  'food_flyingtaco':   { opens: 11*60, closes: 21*60, label: '11am–9pm' },
+  'food_mangialardos': { opens: 17*60, closes: 22*60, label: '5–10pm' },
+};
+
+// =====================================================================
+// PERSISTENCE
+// =====================================================================
+function save() {
+  localStorage.setItem(SK, JSON.stringify({
+    checked:[...checked], arrivals, birdMins, vstatus,
+    foodAdded:[...foodAdded], rainMode, expanded:[...expanded],
+    syncedSp:[...syncedSp], timeConstraints, routeOrder:[...routeOrder],
+    removedStops:[...removedStops], ithacaDepartTime,
+    constructionOverrides:[...constructionOverrides]
+  }));
+}
+function loadSave() {
+  try {
+    const s = JSON.parse(localStorage.getItem(SK)||'{}');
+    if (s.checked)          checked         = new Set(s.checked);
+    if (s.arrivals)         arrivals        = s.arrivals;
+    if (s.birdMins)         birdMins        = s.birdMins;
+    if (s.vstatus)          vstatus         = s.vstatus;
+    if (s.foodAdded)        foodAdded       = new Set(s.foodAdded);
+    if (s.rainMode)         rainMode        = s.rainMode;
+    if (s.expanded)         expanded        = new Set(s.expanded);
+    if (s.syncedSp)         syncedSp        = new Set(s.syncedSp);
+    if (s.timeConstraints)  timeConstraints = s.timeConstraints;
+    if (s.routeOrder)       _savedRouteOrder = s.routeOrder;
+    if (s.removedStops)     removedStops     = new Set(s.removedStops);
+    if (s.ithacaDepartTime != null) ithacaDepartTime = s.ithacaDepartTime;
+    if (s.constructionOverrides) constructionOverrides = new Set(s.constructionOverrides);
+  } catch(e) {}
+}
+function confirmReset() {
+  if (!confirm('Reset all checkoffs and stop statuses?')) return;
+  localStorage.removeItem(SK);
+  [checked, foodAdded, expanded, showAllSp, syncedSp, removedStops, constructionOverrides].forEach(s => s.clear());
+  arrivals = {}; birdMins = {}; vstatus = {};
+  renderRoute(); renderAllSp(); updateBadge(); renderRemovedStopsList();
+}
+
+// =====================================================================
+// HELPERS
+// =====================================================================
+function fmt(min) {
+  const h=Math.floor(min/60), m=min%60;
+  const hr = h>12?h-12:(h===0?12:h), ap = h<12?'am':'pm';
+  return `${hr}:${m.toString().padStart(2,'0')}${ap}`;
+}
+function shortN(name) {
+  return name
+    .replace(/\s*US-PA\s*[\d.]+,\s*-[\d.]+/g,'')
+    .replace(/\s*\([\d.]+,\s*-[\d.]+\)/g,'')
+    .replace(/^\d+[–\-]\d+\s+/,'')
+    .trim();
+}
+function bm(lid) {
+  return birdMins[lid] ?? (D.sites[lid]?.bird_min_default ?? defBm(lid));
+}
+function defBm(lid) {
+  const MINS = {park:65,forest:50,marsh:35,river:22,lake:22,fluddle:28,general:18,food:45};
+  return MINS[D.sites[lid]?.habitat||'general']||20;
+}
+function _rawMins(la,lo,lb,lb2) {
+  const R=3959, dlat=(lb-la)*Math.PI/180, dlon=(lb2-lo)*Math.PI/180;
+  const a=Math.sin(dlat/2)**2+Math.cos(la*Math.PI/180)*Math.cos(lb*Math.PI/180)*Math.sin(dlon/2)**2;
+  return R*2*Math.asin(Math.sqrt(a))*1.5/35*60;
+}
+function legKey(a, b) { return `${a}|${b}`; }
+function driveMi(la,lo,lb,lb2, fromLid, toLid) {
+  if (CONSTRUCTION.active && crossesConstruction(la, lo, lb, lb2) &&
+      !constructionOverrides.has(legKey(fromLid, toLid))) {
+    const {lat:bla, lon:blo} = CONSTRUCTION.bypassPt;
+    return Math.max(3, Math.round(_rawMins(la,lo,bla,blo) + _rawMins(bla,blo,lb,lb2)));
+  }
+  return Math.max(3, Math.round(_rawMins(la,lo,lb,lb2)));
+}
+function scheduleOrigin() {
+  if (ithacaDepartTime != null) return {t: ithacaDepartTime, lat: ITHACA_ORIGIN.lat, lon: ITHACA_ORIGIN.lon};
+  return {t: 4*60, lat: D.metadata.start_lat, lon: D.metadata.start_lon};
+}
+function scheduleBirdOnly() {
+  if (!D) return [];
+  const {t: t0, lat: oLat, lon: oLon} = scheduleOrigin();
+  let t=t0, pl=oLat, plo=oLon, prevLid=null;
+  return routeOrder.map(lid => {
+    const s = D.sites[lid];
+    if (!s) return null;
+    const drv = driveMi(pl, plo, s.lat, s.lon, prevLid, lid);
+    let arr = arrivals[lid] ?? (t + drv);
+    const tc = timeConstraints[lid];
+    if (tc?.notBefore != null && arr < tc.notBefore) arr = tc.notBefore;
+    const bird = bm(lid);
+    const item = {lid, arriveMin:arr, driveMin:drv, birdMin:bird, pinned: tc?.notBefore != null,
+                  late: tc?.notAfter != null && arr > tc.notAfter};
+    t = arr + bird;
+    pl = s.lat; plo = s.lon; prevLid = lid;
+    return item;
+  }).filter(Boolean);
+}
+function unseenAt(lid) {
+  return (D.sites[lid]?.species||[]).filter(sp=>!checked.has(sp));
+}
+function getFreq(sp, lid) {
+  // Per-location override if available (≥5 checklists), else county
+  const override = D.site_freq_override?.[lid];
+  if (override && sp in override) return override[sp];
+  return D.county_freq?.[sp] ?? null;
+}
+
+function classifyHabitatJS(name) {
+  const n = name.toLowerCase();
+  if (['fluddle','puddle'].some(x=>n.includes(x))) return 'fluddle';
+  if (['marsh','wetland','swamp'].some(x=>n.includes(x))) return 'marsh';
+  if (['lake','pond','reservoir','swimming dam'].some(x=>n.includes(x))) return 'lake';
+  if (['river','susquehanna','creek','stream','access','pulloff','bridge',
+       'tioga point','river walk','river st','riparian','landing',
+       'riverfront','diahoga','lockhart','wysox'].some(x=>n.includes(x))) return 'river';
+  if (['state game lands','sgl','game land'].some(x=>n.includes(x))) return 'forest';
+  if (['state park',' sp ','county park','round top','pisgah','trail','preserve',
+       'nature area','sanctuary','wilbur beers','sunfish','sunnyfield','knapp'].some(x=>n.includes(x))) return 'park';
+  return 'general';
+}
+
+async function fetchLocationSpeciesAPI(lid, key) {
+  const YEARS = [2024, 2023, 2022];
+  const DAYS  = [8, 9, 10];
+  const clMap = {};
+  const normalize = n => {
+    if (!n) return null;
+    if (/\bsp\.\s*$/.test(n)) return null;
+    if (n.includes('/')) return null;
+    if (/\bx\b/.test(n)) return null;
+    return n.replace(/\s*\([^)]+\)\s*$/, '').trim() || null;
+  };
+  for (const yr of YEARS) {
+    for (const day of DAYS) {
+      try {
+        const r = await fetch(
+          `https://api.ebird.org/v2/data/obs/${lid}/historic/${yr}/5/${day}?maxResults=500&includeProvisional=true&detail=full`,
+          { headers: {'X-eBirdApiToken': key} }
+        );
+        if (!r.ok) continue;
+        const obs = await r.json();
+        for (const o of obs) {
+          const sp = normalize(o.comName);
+          if (!sp) continue;
+          if (!clMap[o.subId]) clMap[o.subId] = new Set();
+          clMap[o.subId].add(sp);
+        }
+      } catch(_) {}
+      await new Promise(res => setTimeout(res, 80));
+    }
+  }
+  const n = Object.keys(clMap).length;
+  if (n === 0) return null;
+  const spCount = {};
+  for (const spp of Object.values(clMap)) {
+    for (const sp of spp) spCount[sp] = (spCount[sp]||0) + 1;
+  }
+  const spFreq = Object.entries(spCount)
+    .map(([sp, c]) => [sp, Math.round(c / n * 1000) / 10])
+    .filter(([_, f]) => f >= 5)
+    .sort((a,b) => b[1]-a[1]);
+  return spFreq.length >= 3 ? { n, sp: spFreq } : null;
+}
+function freqTier(f) {
+  if (f === null || f === undefined) return null;
+  if (f >= 15) return 'common';
+  if (f >= 5)  return 'likely';
+  if (f >= 1)  return 'possible';
+  return 'uncommon';
+}
+function displayOrder() {
+  const order = [...routeOrder];
+  // Build a snapshot schedule based only on bird stops (for timing estimates)
+  const snap = {}; scheduleBirdOnly().forEach(s => snap[s.lid] = s);
+
+  for (const fs of D.food_stops) {
+    if (!foodAdded.has(fs.lid) || order.includes(fs.lid)) continue;
+    const fh   = FOOD_HOURS[fs.lid];
+    const fsite = D.sites[fs.lid];
+    if (!fsite) { order.push(fs.lid); continue; }
+
+    let bestIdx = order.length, bestScore = Infinity;
+
+    for (let i = 0; i <= order.length; i++) {
+      // When does the previous stop finish?
+      let tDepart, pLat, pLon;
+      if (i === 0) {
+        const origin = scheduleOrigin();
+        tDepart = origin.t;
+        pLat = origin.lat; pLon = origin.lon;
+      } else {
+        const pLid = order[i - 1];
+        const pSe  = snap[pLid];
+        const pSite = D.sites[pLid];
+        if (!pSe || !pSite) continue;
+        tDepart = pSe.arriveMin + bm(pLid);
+        pLat = pSite.lat; pLon = pSite.lon;
+      }
+
+      const driveIn   = driveMi(pLat, pLon, fsite.lat, fsite.lon);
+      const arrAtFood = tDepart + driveIn;
+
+      // Time penalty: minutes outside the open window
+      let timePenalty = 0;
+      if (fh) {
+        if (arrAtFood < fh.opens)         timePenalty = fh.opens - arrAtFood;
+        else if (arrAtFood > fh.closes - 15) timePenalty = arrAtFood - (fh.closes - 15);
+      }
+
+      // Geographic detour vs skipping straight to the next stop
+      let detour = 0;
+      if (i < order.length) {
+        const nSite = D.sites[order[i]];
+        if (nSite) {
+          const direct = driveMi(pLat, pLon, nSite.lat, nSite.lon);
+          detour = Math.max(0, driveIn + driveMi(fsite.lat, fsite.lon, nSite.lat, nSite.lon) - direct);
+        }
+      }
+
+      // Time fitness heavily outweighs geographic detour so opening hours are respected
+      const score = timePenalty * 10 + detour;
+      if (score < bestScore) { bestScore = score; bestIdx = i; }
+    }
+
+    order.splice(bestIdx, 0, fs.lid);
+  }
+  return order;
+}
+
+// Full schedule: walks displayOrder() and folds food stop drive+duration into running time
+// so all subsequent bird stop arrivals shift correctly.
+function schedule() {
+  if (!D) return [];
+  const {t: t0, lat: oLat, lon: oLon} = scheduleOrigin();
+  let t = t0, pl = oLat, plo = oLon, prevLid = null;
+  const ord = displayOrder();
+  const result = {};
+  for (const lid of ord) {
+    const site = D.sites[lid];
+    if (!site) continue;
+    const drv = driveMi(pl, plo, site.lat, site.lon, prevLid, lid);
+    if (site.food && foodAdded.has(lid)) {
+      t += drv + bm(lid);
+      pl = site.lat; plo = site.lon; prevLid = lid;
+    } else if (!site.food) {
+      let arr = arrivals[lid] ?? (t + drv);
+      const tc = timeConstraints[lid];
+      if (tc?.notBefore != null && arr < tc.notBefore) arr = tc.notBefore;
+      const bird = bm(lid);
+      result[lid] = {lid, arriveMin: arr, driveMin: drv, birdMin: bird,
+                     pinned: tc?.notBefore != null,
+                     late: tc?.notAfter != null && arr > tc.notAfter};
+      t = arr + bird;
+      pl = site.lat; plo = site.lon; prevLid = lid;
+    }
+  }
+  return routeOrder.map(lid => result[lid]).filter(Boolean);
+}
+
+// =====================================================================
+// INIT
+// =====================================================================
+async function init() {
+  loadSave();
+  try {
+    const r = await fetch('bradford_day_data.json');
+    D = await r.json();
+    for (const item of D.default_route)
+      if (D.sites[item.lid]) D.sites[item.lid].bird_min_default = item.bird_min;
+  } catch(e) {
+    document.getElementById('loading').textContent =
+      'Cannot load bradford_day_data.json. If running locally: python3 -m http.server 8768';
+    return;
+  }
+  if (rainMode) document.getElementById('rain-btn').classList.add('on');
+  loadCustomStops();
+  setRoute();
+  // Restore user's saved ordering and honour manual removals
+  if (_savedRouteOrder) {
+    const fresh = new Set(routeOrder);
+    // Saved order, keeping only stops still in the current default and not removed
+    const savedFiltered = _savedRouteOrder.filter(l => fresh.has(l) && !removedStops.has(l));
+    const savedSet = new Set(savedFiltered);
+    // Any stops new in this deploy (not in saved, not removed) go at the end
+    const newLids = routeOrder.filter(l => !savedSet.has(l) && !removedStops.has(l));
+    routeOrder = [...savedFiltered, ...newLids];
+    _savedRouteOrder = null;
+  } else {
+    routeOrder = routeOrder.filter(l => !removedStops.has(l));
+  }
+  renderRoute();
+  renderAllSp();
+  updateBadge();
+  fetchWeather();
+  fetchSunTimes();
+  loadSyncSettings();
+  renderCustomStopsList();
+  renderRemovedStopsList();
+  initDragDrop();
+  // Populate location name autocomplete from personal data
+  const dl = document.getElementById('personal-loc-list');
+  if (dl && D.personal_locations) {
+    const alreadyIn = new Set([...routeOrder, ...Object.keys(D.sites)]);
+    Object.entries(D.personal_locations)
+      .filter(([lid]) => !alreadyIn.has(lid))
+      .sort((a, b) => a[1].name.localeCompare(b[1].name))
+      .forEach(([lid, pl]) => {
+        const opt = document.createElement('option');
+        opt.value = lid;
+        opt.label = pl.name;
+        dl.appendChild(opt);
+      });
+  }
+}
+
+async function fetchSunTimes() {
+  const date = D?.metadata?.target_date || '2026-05-09';
+  const bar = document.getElementById('sun-bar');
+  try {
+    const r = await fetch(`https://api.sunrise-sunset.org/json?lat=41.82&lng=-76.6&date=${date}&formatted=0`);
+    const d = await r.json();
+    if (d.status !== 'OK') throw new Error(d.status);
+    const t = d.results;
+    const fmtUtc = utcStr => new Date(utcStr).toLocaleTimeString('en-US', {
+      timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit', hour12: true
+    });
+    const toMin = utcStr => {
+      const s = new Date(utcStr).toLocaleTimeString('en-US',
+        {timeZone:'America/New_York', hour:'2-digit', minute:'2-digit', hour12:false});
+      const [h, m] = s.split(':').map(Number);
+      return h * 60 + (isNaN(m) ? 0 : m);
+    };
+    sunTimes = {
+      civil_twilight_begin: toMin(t.civil_twilight_begin),
+      sunrise:              toMin(t.sunrise),
+      sunset:               toMin(t.sunset),
+      civil_twilight_end:   toMin(t.civil_twilight_end),
+    };
+    bar.innerHTML = [
+      ['🌄', 'Civil dawn',    t.civil_twilight_begin],
+      ['☀️',  'Sunrise',       t.sunrise],
+      ['🌇', 'Sunset',        t.sunset],
+      ['🌆', 'Civil dusk',    t.civil_twilight_end],
+    ].map(([icon, label, utc]) =>
+      `<span class="sun-item">${icon} ${label}: <strong>${fmtUtc(utc)}</strong></span>`
+    ).join('');
+    if (D) renderRoute();
+  } catch(e) {
+    bar.textContent = 'Sun times unavailable';
+  }
+}
+
+async function fetchWeather() {
+  try {
+    const r = await fetch('https://api.open-meteo.com/v1/forecast?latitude=41.82&longitude=-76.60' +
+      '&hourly=temperature_2m,precipitation_probability,weathercode,windspeed_10m' +
+      '&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,weathercode,precipitation_probability_max' +
+      '&timezone=America%2FNew_York&start_date=2026-05-09&end_date=2026-05-09' +
+      '&temperature_unit=fahrenheit&windspeed_unit=mph');
+    const d = await r.json();
+    const wx = d.daily;
+    const code=wx.weathercode[0], hi=Math.round(wx.temperature_2m_max[0]),
+          lo=Math.round(wx.temperature_2m_min[0]), precip=wx.precipitation_sum[0],
+          prob=wx.precipitation_probability_max[0];
+    const icon = WX_ICONS[code]||WX_ICONS[Math.floor(code/10)*10]||'🌡';
+    const bar = document.getElementById('wx-bar');
+    bar.textContent = `${icon} May 9: ${hi}°/${lo}°F · ${prob}% rain · ${precip.toFixed(1)}mm precip`;
+    if (prob>=50||precip>3) {
+      bar.classList.add('rainy');
+      bar.textContent += ' — 🌧 Rain mode auto-enabled';
+      if (!rainMode) { rainMode=true; document.getElementById('rain-btn').classList.add('on'); setRoute(); renderRoute(); save(); }
+    }
+    // Store hourly data indexed by hour (0–23)
+    if (d.hourly) {
+      const h = d.hourly;
+      hourlyWx = Array.from({length: 24}, (_, i) => ({
+        temp: Math.round(h.temperature_2m[i]),
+        prob: h.precipitation_probability[i],
+        code: h.weathercode[i],
+        wind: Math.round(h.windspeed_10m[i]),
+      }));
+      renderRoute();
+    }
+  } catch(e) {
+    document.getElementById('wx-bar').textContent = 'Forecast unavailable. Check weather.gov for Bradford County, PA.';
+  }
+}
+
+function setRoute() {
+  if (!D) return;
+  routeOrder = (rainMode ? D.rain_route : D.default_route).map(i=>i.lid);
+  for (const cs of customStops) {
+    if (!D.sites[cs.lid]) {
+      const dupBase = cs.lid.match(/^(.+)_dup\d+$/)?.[1];
+      if (dupBase && D.sites[dupBase]) {
+        D.sites[cs.lid] = { ...D.sites[dupBase], _custom: true, _dup_of: dupBase };
+        if (D.site_freq_override?.[dupBase]) D.site_freq_override[cs.lid] = D.site_freq_override[dupBase];
+      } else {
+        D.sites[cs.lid] = { name:cs.name, lat:cs.lat, lon:cs.lon, habitat:'general', species:[], unique_species:[], rare_species:[], list_count:0, _custom:true };
+      }
+    }
+    if (!routeOrder.includes(cs.lid)) insertOptimalPosition(cs.lid, cs.lat, cs.lon);
+  }
+}
+function insertOptimalPosition(lid, lat, lon) {
+  const origin = scheduleOrigin();
+  let bestIdx = routeOrder.length, bestDetour = Infinity;
+  for (let i = 0; i <= routeOrder.length; i++) {
+    let pLat, pLon;
+    if (i === 0) { pLat = origin.lat; pLon = origin.lon; }
+    else { const p = D.sites[routeOrder[i-1]]; if (!p) continue; pLat = p.lat; pLon = p.lon; }
+    const driveIn = driveMi(pLat, pLon, lat, lon);
+    let detour = driveIn;
+    if (i < routeOrder.length) {
+      const nSite = D.sites[routeOrder[i]];
+      if (nSite) detour = Math.max(0, driveIn + driveMi(lat, lon, nSite.lat, nSite.lon) - driveMi(pLat, pLon, nSite.lat, nSite.lon));
+    }
+    if (detour < bestDetour) { bestDetour = detour; bestIdx = i; }
+  }
+  routeOrder.splice(bestIdx, 0, lid);
+}
+
+function moveStop(lid, dir) {
+  const idx = routeOrder.indexOf(lid);
+  if (idx < 0) return;
+  const newIdx = idx + dir;
+  if (newIdx < 0 || newIdx >= routeOrder.length) return;
+  [routeOrder[idx], routeOrder[newIdx]] = [routeOrder[newIdx], routeOrder[idx]];
+  save(); renderRoute(); refreshMapPolyline();
+}
+
+function initDragDrop() {
+  const pane = document.getElementById('pane-route');
+  if (!pane) return;
+
+  function clearIndicators() {
+    pane.querySelectorAll('.drop-above,.drop-below,.dragging').forEach(el => {
+      el.classList.remove('drop-above', 'drop-below', 'dragging');
+    });
+  }
+
+  pane.addEventListener('dragstart', e => {
+    const handle = e.target.closest('[data-drag-lid]');
+    if (!handle) { e.preventDefault(); return; }
+    dragSrcLid = handle.dataset.dragLid;
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', dragSrcLid);
+    // Defer the opacity change so it doesn't apply to the drag ghost
+    setTimeout(() => {
+      const el = document.getElementById('stop-' + dragSrcLid);
+      if (el) el.classList.add('dragging');
+    }, 0);
+  });
+
+  pane.addEventListener('dragover', e => {
+    if (!dragSrcLid) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    const stopEl = e.target.closest('.stop[data-lid]');
+    clearIndicators();
+    const srcEl = document.getElementById('stop-' + dragSrcLid);
+    if (srcEl) srcEl.classList.add('dragging');
+    if (!stopEl || stopEl.dataset.lid === dragSrcLid) return;
+    if (!routeOrder.includes(stopEl.dataset.lid)) return; // skip food stops
+    const rect = stopEl.getBoundingClientRect();
+    stopEl.classList.add(e.clientY < rect.top + rect.height / 2 ? 'drop-above' : 'drop-below');
+  });
+
+  pane.addEventListener('dragleave', e => {
+    // Only clear when leaving the entire pane
+    if (!pane.contains(e.relatedTarget)) clearIndicators();
+  });
+
+  pane.addEventListener('drop', e => {
+    e.preventDefault();
+    const stopEl = e.target.closest('.stop[data-lid]');
+    if (!stopEl || !dragSrcLid) { clearIndicators(); dragSrcLid = null; return; }
+    const targetLid = stopEl.dataset.lid;
+    if (targetLid === dragSrcLid || !routeOrder.includes(targetLid)) {
+      clearIndicators(); dragSrcLid = null; return;
+    }
+    const rect = stopEl.getBoundingClientRect();
+    const insertAfter = e.clientY >= rect.top + rect.height / 2;
+    const srcIdx = routeOrder.indexOf(dragSrcLid);
+    routeOrder.splice(srcIdx, 1);
+    const newTgt = routeOrder.indexOf(targetLid);
+    routeOrder.splice(insertAfter ? newTgt + 1 : newTgt, 0, dragSrcLid);
+    dragSrcLid = null;
+    save(); renderRoute(); refreshMapPolyline();
+  });
+
+  pane.addEventListener('dragend', () => {
+    clearIndicators();
+    dragSrcLid = null;
+  });
+}
+function setTimeConstraint(lid, timeStr) {
+  if (!timeStr) { clearTimeConstraint(lid); return; }
+  const [h, m] = timeStr.split(':').map(Number);
+  if (!timeConstraints[lid]) timeConstraints[lid] = {};
+  timeConstraints[lid].notBefore = h * 60 + m;
+  save(); renderRoute();
+}
+function clearTimeConstraint(lid) {
+  if (timeConstraints[lid]) {
+    delete timeConstraints[lid].notBefore;
+    if (!Object.keys(timeConstraints[lid]).length) delete timeConstraints[lid];
+  }
+  save(); renderRoute();
+}
+function setNotAfterConstraint(lid, timeStr) {
+  if (!timeStr) { clearNotAfterConstraint(lid); return; }
+  const [h, m] = timeStr.split(':').map(Number);
+  if (!timeConstraints[lid]) timeConstraints[lid] = {};
+  timeConstraints[lid].notAfter = h * 60 + m;
+  save(); renderRoute();
+}
+function clearNotAfterConstraint(lid) {
+  if (timeConstraints[lid]) {
+    delete timeConstraints[lid].notAfter;
+    if (!Object.keys(timeConstraints[lid]).length) delete timeConstraints[lid];
+  }
+  save(); renderRoute();
+}
+
+function setIthacaDepart(timeStr) {
+  if (!timeStr) { ithacaDepartTime = null; }
+  else { const [h,m] = timeStr.split(':').map(Number); ithacaDepartTime = h*60+m; }
+  save(); renderRoute();
+}
+
+// =====================================================================
+// RENDER ROUTE
+// =====================================================================
+function renderRoute() {
+  if (!D) return;
+  const sched = schedule();
+  const sm = {}; sched.forEach(s=>sm[s.lid]=s);
+  const ord = displayOrder();
+
+  // Pre-compute construction crossings for banner count
+  let constrCrossings = 0;
+  if (CONSTRUCTION.active) {
+    let prevSiteC = null;
+    for (const lid of ord) {
+      const s = D.sites[lid];
+      if (!s) continue;
+      if (prevSiteC && crossesConstruction(prevSiteC.lat, prevSiteC.lon, s.lat, s.lon)) constrCrossings++;
+      prevSiteC = s;
+    }
+  }
+
+  let html = '<div id="food-row"><span>+ Add food break:</span>';
+  for (const fs of D.food_stops) {
+    const a = foodAdded.has(fs.lid);
+    const fh = FOOD_HOURS[fs.lid];
+    const hoursTitle = fh ? `Hours: ${fh.label}` : '';
+    html += `<button class="food-chip${a?' added':''}" onclick="toggleFood('${fs.lid}')" title="${hoursTitle}">${fs.name}${fh?`<span style="font-size:10px;opacity:.7"> ${fh.label}</span>`:''}</button>`;
+  }
+  html += '</div>';
+
+  if (CONSTRUCTION.active && constrCrossings > 0) {
+    const crossWord = constrCrossings === 1 ? 'crossing' : 'crossings';
+    html += `<div class="constr-banner">🚧 <strong>${constrCrossings} construction ${crossWord}</strong> detected — ${CONSTRUCTION.detail}. Marked below. Reorder stops to minimize.</div>`;
+  }
+
+  // Ithaca departure bar
+  {
+    const tcVal = ithacaDepartTime != null
+      ? `${String(Math.floor(ithacaDepartTime/60)).padStart(2,'0')}:${String(ithacaDepartTime%60).padStart(2,'0')}`
+      : '';
+    const firstLid = routeOrder[0];
+    const firstSite = firstLid ? D.sites[firstLid] : null;
+    let detail = '';
+    if (ithacaDepartTime != null && firstSite) {
+      const drv = driveMi(ITHACA_ORIGIN.lat, ITHACA_ORIGIN.lon, firstSite.lat, firstSite.lon);
+      const arrive = ithacaDepartTime + drv;
+      detail = `${drv} min drive → arrive ${shortN(firstSite.name)} at ${fmt(arrive)}`;
+    } else if (firstSite) {
+      detail = 'Set a departure time to calculate drive to first stop';
+    }
+    html += `<div class="depart-bar">
+      <span style="font-size:18px">🚗</span>
+      <span class="depart-label">Depart ${ITHACA_ORIGIN.label}</span>
+      <input type="time" class="tc-input" value="${tcVal}" onchange="setIthacaDepart(this.value)" placeholder="--:--">
+      ${ithacaDepartTime != null ? `<button onclick="setIthacaDepart('')" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:14px;padding:0;line-height:1" title="Clear departure time">✕</button>` : ''}
+      <span class="depart-detail">${detail}</span>
+    </div>`;
+  }
+
+  let stopNum = 0;
+  const insertedSunKeys = new Set();
+  const origin = scheduleOrigin();
+  let prevDepartMin = origin.t;
+  let prevSite = null; // for construction crossing detection
+  let prevLid  = null;
+
+  for (let i = 0; i < ord.length; i++) {
+    const lid = ord[i];
+    const site = D.sites[lid];
+    if (!site) continue;
+    const isFood = !!site.food;
+    const se = sm[lid];
+    const status = vstatus[lid]||'';
+    const cls = ['stop', status==='arrived'?'current':'', status==='done'?'visited':'', status==='skipped'?'skipped':''].filter(Boolean).join(' ');
+    const icon = D.habitat_icons[site.habitat]||'📍';
+    const name = shortN(site.name);
+    const unseen = isFood ? null : unseenAt(lid).length;
+    const total  = site.species?.length||0;
+    const uniqUnseen = isFood ? 0 : (site.unique_species||[]).filter(sp=>!checked.has(sp)).length;
+
+    let badge='', badgeCls='sbadge';
+    if (!isFood) {
+      badge = unseen===0&&total>0 ? '✓ done' : `${unseen} / ${total}`;
+      if (unseen===0) badgeCls+=' zero';
+    }
+    const roIdx = routeOrder.indexOf(lid);
+    const isFirst = roIdx === 0, isLast = roIdx === routeOrder.length - 1;
+
+    // Estimate food stop arrival from the last scheduled bird stop before it
+    let foodEstArr = null;
+    if (isFood) {
+      for (let k = i - 1; k >= 0; k--) {
+        const prevLid = ord[k];
+        if (sm[prevLid]) {
+          const prev = sm[prevLid], ps = D.sites[prevLid];
+          foodEstArr = prev.arriveMin + bm(prevLid) + (ps && site ? driveMi(ps.lat, ps.lon, site.lat, site.lon) : 0);
+          break;
+        }
+      }
+    }
+
+    let sub = '';
+    if (!isFood && se) {
+      sub = fmt(se.arriveMin);
+      if (se.pinned) sub += ` <span class="pin-badge">📌</span>`;
+      if (se.late) sub += ` <span style="color:#ef4444;font-weight:600">⚠ late</span>`;
+      if (se.driveMin>0) sub += ` · ${se.driveMin}m drive`;
+      sub += ` · ${bm(lid)}m`;
+      if (uniqUnseen>0) sub += ` · ★${uniqUnseen}`;
+      // Frequency breakdown of unseen species
+      if (D.county_freq && site.species) {
+        const nCommon   = unseenAt(lid).filter(sp=>{ const f=getFreq(sp,lid); return f!==null&&f>=15; }).length;
+        const nLikely   = unseenAt(lid).filter(sp=>{ const f=getFreq(sp,lid); return f!==null&&f>=5&&f<15; }).length;
+        if (nCommon+nLikely > 0) sub += ` · <span style="color:#4ade80">●${nCommon}</span> <span style="color:#fbbf24">●${nLikely}</span>`;
+      }
+      // Hourly weather at arrival time
+      if (hourlyWx) {
+        const hr = Math.min(23, Math.floor(se.arriveMin / 60));
+        const w = hourlyWx[hr];
+        const wxIcon = WX_ICONS[w.code] || WX_ICONS[Math.floor(w.code/10)*10] || '🌡';
+        const windStr = w.wind >= 15 ? ` ${w.wind}mph` : '';
+        const probStr = w.prob > 0 ? ` ${w.prob}%🌧` : '';
+        sub += ` · <span style="color:var(--muted)">${wxIcon} ${w.temp}°${probStr}${windStr}</span>`;
+      }
+    } else if (isFood) {
+      sub = site.note||'';
+      if (foodEstArr !== null) sub += ` · est. ${fmt(foodEstArr)}`;
+      const fh = FOOD_HOURS[lid];
+      if (fh) {
+        if (foodEstArr !== null) {
+          if (foodEstArr < fh.opens) sub += ` · <span class="food-warn">⚠ not open until ${fmt(fh.opens)}</span>`;
+          else if (foodEstArr > fh.closes) sub += ` · <span class="food-warn">⚠ closes at ${fmt(fh.closes)}</span>`;
+          else sub += ` · <span class="food-hours verified">✓ open ${fh.label}</span>`;
+        } else {
+          sub += ` · <span class="food-hours">${fh.label}</span>`;
+        }
+      }
+      const tcFood = timeConstraints[lid];
+      if (tcFood?.notAfter != null && foodEstArr != null && foodEstArr > tcFood.notAfter)
+        sub += ` · <span style="color:#ef4444;font-weight:600">⚠ after cutoff ${fmt(tcFood.notAfter)}</span>`;
+    }
+
+    // Insert any sun events that occur before this stop's arrival
+    const arrMin = se ? se.arriveMin : prevDepartMin + 3;
+    if (sunTimes) {
+      for (const ev of SUN_EVENTS) {
+        const t = sunTimes[ev.key];
+        if (t != null && !insertedSunKeys.has(ev.key) && t < arrMin) {
+          html += `<div class="sun-divider"><div class="sun-div-line"></div><span class="sun-div-label">${ev.icon} ${ev.label} · ${fmt(t)}</span><div class="sun-div-line"></div></div>`;
+          insertedSunKeys.add(ev.key);
+        }
+      }
+    }
+
+    // Construction crossing divider
+    if (CONSTRUCTION.active && prevSite && crossesConstruction(prevSite.lat, prevSite.lon, site.lat, site.lon)) {
+      const k = legKey(prevLid, lid);
+      const isDirect = constructionOverrides.has(k);
+      html += `<div class="constr-divider">
+        <div class="constr-div-line"></div>
+        <span class="constr-div-label">🚧 ${CONSTRUCTION.label}</span>
+        <button onclick="toggleConstructionBypass('${prevLid}','${lid}')" style="font-size:10px;padding:2px 7px;border-radius:10px;border:1px solid ${isDirect?'#ef4444':'#475569'};background:${isDirect?'#450a0a':'transparent'};color:${isDirect?'#fca5a5':'var(--muted)'};cursor:pointer;flex-shrink:0">${isDirect?'⚡ Direct':'🔀 Via Ghent Hill'}</button>
+        <div class="constr-div-line"></div>
+      </div>`;
+    }
+
+    const isOpen = expanded.has(lid);
+    html += `<div class="${cls}" id="stop-${lid}" data-lid="${lid}"${!isFood?' data-draggable="1"':''}>
+      <div class="shead" onclick="toggleStop('${lid}')">
+        ${!isFood ? `<span class="drag-handle" draggable="true" data-drag-lid="${lid}" onclick="event.stopPropagation()">⠿</span>` : ''}
+        ${!isFood ? `<div class="mobile-reorder"><button onclick="event.stopPropagation();moveStop('${lid}',-1)" ${isFirst?'disabled':''}>↑</button><button onclick="event.stopPropagation();moveStop('${lid}',1)" ${isLast?'disabled':''}>↓</button></div>` : ''}
+        <span class="snum">${++stopNum}</span>
+        <span class="sicon">${icon}</span>
+        <div class="snwrap"><div class="sname">${name}</div><div class="ssub">${sub}</div></div>
+        ${badge?`<span class="${badgeCls}">${badge}</span>`:''}
+        <span class="schev${isOpen?' open':''}">▼</span>
+      </div>
+      <div class="sbody"${isOpen?' style="display:block"':''}>
+        ${isOpen ? renderBody(lid, isFood, se, foodEstArr) : ''}
+      </div>
+    </div>`;
+    if (se) prevDepartMin = se.arriveMin + bm(lid);
+    else if (isFood && foodEstArr !== null) prevDepartMin = foodEstArr + bm(lid);
+    prevSite = site;
+    prevLid  = lid;
+  }
+
+  // Insert any sun events that fall after all stops (e.g. dusk after the last stop)
+  if (sunTimes) {
+    for (const ev of SUN_EVENTS) {
+      const t = sunTimes[ev.key];
+      if (t != null && !insertedSunKeys.has(ev.key)) {
+        html += `<div class="sun-divider"><div class="sun-div-line"></div><span class="sun-div-label">${ev.icon} ${ev.label} · ${fmt(t)}</span><div class="sun-div-line"></div></div>`;
+      }
+    }
+  }
+
+  html += `<div class="legend">
+    <span>★ Only at this stop</span>
+    <span>◆ At ≤3 stops</span>
+    <span style="color:#475569">Based on personal May visits</span>
+  </div>`;
+
+  document.getElementById('pane-route').innerHTML = html;
+}
+
+function renderBody(lid, isFood, se, foodEstArr=null) {
+  const site = D.sites[lid];
+  if (!site) return '';
+  const tc = timeConstraints[lid];
+  const fmtTc = min => `${String(Math.floor(min/60)).padStart(2,'0')}:${String(min%60).padStart(2,'0')}`;
+  const notBeforeVal = tc?.notBefore != null ? fmtTc(tc.notBefore) : '';
+  const notAfterVal  = tc?.notAfter  != null ? fmtTc(tc.notAfter)  : '';
+
+  if (isFood) {
+    const bmVal = bm(lid);
+    const arrStr = foodEstArr != null ? `Expected: ${fmt(foodEstArr)}` : '';
+    const lateWarn = tc?.notAfter != null && foodEstArr != null && foodEstArr > tc.notAfter
+      ? `<div style="font-size:11px;color:#ef4444;padding:0 0 4px 2px">⚠ Estimated arrival ${fmt(foodEstArr)} is after cutoff ${fmt(tc.notAfter)}</div>`
+      : '';
+    return `<div class="sact">
+      <button class="btn-done" onclick="markDone('${lid}')">✓ Ate here</button>
+      <button class="btn-skip" onclick="skipStop('${lid}')">⏭ Skip</button>
+    </div>
+    <div class="trow">
+      <span>${arrStr}</span>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <span>Planned time: <input class="bmin" type="number" value="${bmVal}" min="5" max="240" onchange="setBm('${lid}',this.value)"> min</span>
+        ${birdMins[lid] != null ? `<a href="#" style="font-size:10px;color:var(--muted)" onclick="event.preventDefault();resetBm('${lid}')">reset to default</a>` : ''}
+      </div>
+    </div>
+    <div class="tc-row">
+      <span style="color:var(--muted);white-space:nowrap">📌 Visit not before:</span>
+      <input type="time" class="tc-input" value="${notBeforeVal}" onchange="setTimeConstraint('${lid}', this.value)">
+      ${tc?.notBefore != null ? `<button onclick="clearTimeConstraint('${lid}')" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:14px;padding:0 2px;line-height:1" title="Remove constraint">✕</button>` : ''}
+    </div>
+    <div class="tc-row">
+      <span style="color:var(--muted);white-space:nowrap">📌 Visit before:</span>
+      <input type="time" class="tc-input" value="${notAfterVal}" onchange="setNotAfterConstraint('${lid}', this.value)">
+      ${tc?.notAfter != null ? `<button onclick="clearNotAfterConstraint('${lid}')" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:14px;padding:0 2px;line-height:1" title="Remove constraint">✕</button>` : ''}
+    </div>
+    ${lateWarn}`;
+  }
+  const bmVal = bm(lid);
+  const arrStr = se ? `Expected: ${fmt(se.arriveMin)}${arrivals[lid]?` (actual: ${fmt(arrivals[lid])})`:''}` : '';
+  const uniqueSet = new Set(site.unique_species||[]);
+  const rareSet   = new Set(site.rare_species||[]);
+  const allSpp    = [...(site.species||[])];
+  const showAll   = showAllSp.has(lid);
+
+  // Sort: checked → bottom; unchecked: by selected mode
+  const ssMode = stopSortMode[lid] || 'freq';
+  allSpp.sort((a,b)=>{
+    const ca=checked.has(a),cb=checked.has(b);
+    if (ca!==cb) return ca?1:-1;
+    if (ssMode === 'taxon') {
+      return (D.taxon_order?.[a]??99999) - (D.taxon_order?.[b]??99999);
+    }
+    // freq mode: unique first, then rare, then by freq desc, then alpha
+    const ua=uniqueSet.has(a),ub=uniqueSet.has(b);
+    if (ua!==ub) return ua?-1:1;
+    const ra=rareSet.has(a),rb=rareSet.has(b);
+    if (ra!==rb) return ra?-1:1;
+    const fa=getFreq(a,lid)??-1, fb=getFreq(b,lid)??-1;
+    if (fa!==fb) return fb-fa;
+    return a.localeCompare(b);
+  });
+
+  const unseen = allSpp.filter(sp=>!checked.has(sp));
+  const seenSp = allSpp.filter(sp=>checked.has(sp));
+  const toShow = showAll ? allSpp : unseen;
+
+  // Build species rows using data attributes (safe for apostrophes)
+  let srNum = 0;
+  const rows = toShow.map(sp => {
+    const ck=checked.has(sp), uniq=uniqueSet.has(sp), rare=rareSet.has(sp);
+    if (!ck) srNum++;
+    const spObj = D.all_species?.find(s=>s.name===sp);
+    let flags='';
+    if (spObj?.flags?.includes('predawn')) flags+='🌙';
+    if (spObj?.flags?.includes('evening')) flags+='🌅';
+    const f = getFreq(sp, lid);
+    const tier = freqTier(f);
+    const dotHtml = tier ? `<span class="ftier ${tier}" title="${f?.toFixed(1)}% of May checklists"></span>` : '';
+    const numHtml = ck ? '<span class="srnr"></span>' : `<span class="srnr">${srNum}</span>`;
+    return `<div class="sr${ck?' ck':''}${uniq?' uniq':rare?' rare':''}" data-sp="${sp.replace(/"/g,'&quot;')}" data-lid="${lid}">
+      ${numHtml}<input class="scb" type="checkbox"${ck?' checked':''}>
+      ${dotHtml}<span class="sn">${sp}</span>
+      ${flags?`<span class="sflag">${flags}</span>`:''}
+    </div>`;
+  }).join('');
+
+  const hiddenCnt = !showAll ? seenSp.length : 0;
+
+  return `<div class="sact">
+    <button class="btn-here" onclick="markArrived('${lid}')">📍 I'm here</button>
+    <button class="btn-done" onclick="markDone('${lid}')">✓ Done</button>
+    <button class="btn-skip" onclick="skipStop('${lid}')">⏭ Skip</button>
+    <button onclick="checkAllAt('${lid}')">☑ All</button>
+    <button onclick="removeStop('${lid}')" style="color:#ef4444;margin-left:auto" title="Remove this stop from the route">✕ Remove</button>
+  </div>
+  <div class="trow">
+    <span>${arrStr}</span>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <span>Planned time: <input class="bmin" type="number" value="${bmVal}" min="5" max="600" onchange="setBm('${lid}',this.value)"> min</span>
+      ${birdMins[lid] != null ? `<a href="#" style="font-size:10px;color:var(--muted)" onclick="event.preventDefault();resetBm('${lid}')">reset to avg</a>` : ''}
+    </div>
+  </div>
+  ${(()=>{
+    const avg=site.avg_duration, std=site.std_duration, nd=site.n_dur;
+    if(!avg) return '';
+    const stdStr = std != null ? ` ± ${std}` : '';
+    return `<div style="font-size:10px;color:var(--muted);padding:0 0 4px 2px">eBird avg: ${avg}${stdStr} min (${nd} checklist${nd!==1?'s':''})</div>`;
+  })()}
+  <div class="tc-row">
+    <span style="color:var(--muted);white-space:nowrap">📌 Visit not before:</span>
+    <input type="time" class="tc-input" value="${notBeforeVal}" onchange="setTimeConstraint('${lid}', this.value)">
+    ${tc?.notBefore != null ? `<button onclick="clearTimeConstraint('${lid}')" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:14px;padding:0 2px;line-height:1" title="Remove constraint">✕</button>` : ''}
+  </div>
+  <div class="tc-row">
+    <span style="color:var(--muted);white-space:nowrap">📌 Visit before:</span>
+    <input type="time" class="tc-input" value="${notAfterVal}" onchange="setNotAfterConstraint('${lid}', this.value)">
+    ${tc?.notAfter != null ? `<button onclick="clearNotAfterConstraint('${lid}')" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:14px;padding:0 2px;line-height:1" title="Remove constraint">✕</button>` : ''}
+  </div>
+  ${se?.late ? `<div style="font-size:11px;color:#ef4444;padding:0 0 4px 2px">⚠ Estimated arrival ${fmt(se.arriveMin)} is after your cutoff of ${fmt(tc.notAfter)}</div>` : ''}
+  ${(()=>{const rec=site.recommended_not_before;if(rec==null||tc?.notBefore!=null)return'';const rh=Math.floor(rec/60),rm=rec%60,rs=(rh>=12?rh-12:rh||12)+':'+(rm<10?'0':'')+rm+(rh>=12?'pm':'am');return`<div style="font-size:10px;color:var(--muted);padding:0 0 4px 2px">Suggested for evening species: <a href="#" style="color:var(--blue)" onclick="event.preventDefault();setTimeConstraint('${lid}','${String(rh).padStart(2,'0')}:${String(rm).padStart(2,'0')}');renderRoute()">${rs}</a></div>`;})()}
+  <div class="th">
+    <span>Targets: ${unseen.length} unseen of ${allSpp.length}</span>
+    <span style="margin-left:auto;display:flex;gap:4px;align-items:center">
+      <button class="spsort${ssMode==='freq'?' on':''}" onclick="setStopSort('${lid}','freq')">Freq</button>
+      <button class="spsort${ssMode==='taxon'?' on':''}" onclick="setStopSort('${lid}','taxon')">Taxon</button>
+    </span>
+  </div>
+  <div class="splist" onclick="handleSpClick(event)">${rows}</div>
+  ${hiddenCnt>0?`<div style="font-size:11px;color:var(--blue);padding:5px;cursor:pointer" onclick="toggleShowAll('${lid}')">+ show ${hiddenCnt} already-checked species</div>`:''}
+  ${showAll&&seenSp.length?`<div style="font-size:11px;color:var(--muted);padding:5px;cursor:pointer" onclick="toggleShowAll('${lid}')">▲ hide seen species</div>`:''}
+  ${site.list_count?`<div style="font-size:10px;color:var(--muted);margin-top:6px">${site.list_count} eBird May checklist${site.list_count>1?'s':''} in window</div>`:''}`;
+}
+
+// Event delegation for species rows (avoids apostrophe issues in onclick)
+function handleSpClick(e) {
+  const row = e.target.closest('.sr');
+  if (!row) return;
+  const sp = row.dataset.sp;
+  const lid = row.dataset.lid;
+  if (!sp || !lid) return;
+  if (checked.has(sp)) { checked.delete(sp); syncedSp.delete(sp); } else checked.add(sp);
+  save();
+  updateBadge();
+  // Update this row in place
+  const ck = checked.has(sp);
+  row.classList.toggle('ck', ck);
+  const cb = row.querySelector('.scb');
+  if (cb) cb.checked = ck;
+  // Update stop badge
+  const badgeEl = document.querySelector(`#stop-${lid} .sbadge`);
+  if (badgeEl) {
+    const u = unseenAt(lid).length, tot = D.sites[lid]?.species?.length||0;
+    badgeEl.textContent = u===0?'✓ done':`${u} / ${tot}`;
+    badgeEl.className = 'sbadge'+(u===0?' zero':'');
+  }
+  // Re-render stop body so sort order and numbers stay correct
+  const body = row.closest('.sbody');
+  if (body && lid) {
+    const se = schedule().find(s=>s.lid===lid);
+    body.innerHTML = renderBody(lid, !!D.sites[lid]?.food, se);
+  }
+  if (document.getElementById('pane-species').classList.contains('on')) filterSpecies();
+}
+
+function toggleShowAll(lid) {
+  if (showAllSp.has(lid)) showAllSp.delete(lid); else showAllSp.add(lid);
+  const site = D.sites[lid];
+  const se = schedule().find(s=>s.lid===lid);
+  const body = document.querySelector(`#stop-${lid} .sbody`);
+  if (body) body.innerHTML = renderBody(lid, !!site?.food, se);
+}
+
+// =====================================================================
+// STOP INTERACTIONS
+// =====================================================================
+function toggleStop(lid) {
+  const body = document.querySelector(`#stop-${lid} .sbody`);
+  const chev = document.querySelector(`#stop-${lid} .schev`);
+  if (!body) return;
+  const open = body.style.display !== 'none' && body.style.display !== '';
+  // Toggle
+  if (open) {
+    body.style.display = 'none';
+    body.innerHTML = '';
+    expanded.delete(lid);
+    if (chev) chev.classList.remove('open');
+  } else {
+    const site = D.sites[lid];
+    const se = schedule().find(s=>s.lid===lid);
+    body.innerHTML = renderBody(lid, !!site?.food, se);
+    body.style.display = 'block';
+    expanded.add(lid);
+    if (chev) chev.classList.add('open');
+  }
+  save();
+}
+function markArrived(lid) {
+  const now=new Date();
+  arrivals[lid]=now.getHours()*60+now.getMinutes();
+  vstatus[lid]='arrived';
+  save(); renderRoute();
+}
+function markDone(lid)  { vstatus[lid]='done';    save(); renderRoute(); }
+function skipStop(lid)  { vstatus[lid]='skipped'; save(); renderRoute(); }
+function checkAllAt(lid){
+  (D.sites[lid]?.species||[]).forEach(sp=>checked.add(sp));
+  vstatus[lid]='done';
+  save(); updateBadge(); renderRoute();
+  if (document.getElementById('pane-species').classList.contains('on')) filterSpecies();
+}
+function setBm(lid,val) { birdMins[lid]=parseInt(val)||20; save(); renderRoute(); }
+function resetBm(lid) { delete birdMins[lid]; save(); renderRoute(); }
+function toggleFood(lid){
+  if (foodAdded.has(lid)) { foodAdded.delete(lid); removeFoodMarker(lid); }
+  else { foodAdded.add(lid); addFoodMarker(lid); }
+  refreshMapPolyline();
+  save(); renderRoute();
+}
+
+function addFoodMarker(lid) {
+  if (!lmap || foodMarkers[lid]) return;
+  const site = D.sites[lid];
+  if (!site) return;
+  const fh = FOOD_HOURS[lid];
+  const icon = L.divIcon({
+    html:`<div style="background:#f97316;color:#fff;width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:15px;border:2px solid rgba(255,255,255,.85);box-shadow:0 1px 4px rgba(0,0,0,.7)">🍽</div>`,
+    iconSize:[28,28],iconAnchor:[14,14],popupAnchor:[0,-16],className:''
+  });
+  foodMarkers[lid] = L.marker([site.lat,site.lon],{icon})
+    .addTo(lmap)
+    .bindPopup(`<div class="mp"><strong>${site.name}</strong>${fh?`<br>⏰ ${fh.label}`:''}${site.note?`<br>${site.note}`:''}</div>`);
+}
+
+function removeFoodMarker(lid) {
+  if (foodMarkers[lid]) { lmap.removeLayer(foodMarkers[lid]); delete foodMarkers[lid]; }
+}
+
+function refreshMapPolyline() {
+  if (!lmap) return;
+  // Rebuild all stop markers (numbers change when order changes)
+  Object.values(stopMarkers).forEach(m => lmap.removeLayer(m));
+  stopMarkers = {};
+  const sm = {}; schedule().forEach(s => sm[s.lid] = s);
+  const ord = displayOrder();
+  ord.forEach((lid, idx) => {
+    const site = D.sites[lid];
+    if (!site || site.food) return;
+    const color = HCOLORS[site.habitat] || '#94a3b8';
+    const done = vstatus[lid]==='done', skip = vstatus[lid]==='skipped';
+    const bg = done ? '#4ade80' : skip ? '#475569' : color;
+    const icon = L.divIcon({
+      html: `<div style="background:${bg};color:#000;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;border:2px solid rgba(255,255,255,.8);box-shadow:0 1px 4px rgba(0,0,0,.7)">${idx+1}</div>`,
+      iconSize:[26,26],iconAnchor:[13,13],popupAnchor:[0,-14],className:''
+    });
+    const se = sm[lid], name = shortN(site.name);
+    const unseen = site.species ? unseenAt(lid).length : 0;
+    stopMarkers[lid] = L.marker([site.lat, site.lon], {icon})
+      .addTo(lmap)
+      .bindPopup(`<div class="mp"><strong>${name}</strong>
+        ${se ? `⏰ ${fmt(se.arriveMin)}` : ''}
+        ${site.species ? `<br>${unseen} unseen / ${site.species.length} spp` : ''}
+        ${(site.unique_species||[]).length ? `<br>★ ${site.unique_species.length} exclusive` : ''}
+        ${site.note ? `<br>${site.note}` : ''}
+      </div>`);
+  });
+  // Rebuild route polyline — straight-line placeholder first, then real roads
+  if (routePolyline) { lmap.removeLayer(routePolyline); routePolyline = null; }
+  const lls = [], lids = [];
+  for (const lid of ord) { const s = D.sites[lid]; if (s) { lls.push([s.lat, s.lon]); lids.push(lid); } }
+  if (lls.length > 1) routePolyline = L.polyline(lls, {color:'#38bdf8',weight:1.5,opacity:.3,dashArray:'5 5'}).addTo(lmap);
+
+  // Debounce the OSRM fetch so rapid reorders don't spam the API
+  clearTimeout(osrmTimer);
+  const cacheKey = lls.map(ll => ll.join(',')).join(';') + '|' + CONSTRUCTION.bypassPt.lat + ',' + CONSTRUCTION.bypassPt.lon + '|' + [...constructionOverrides].sort().join(',');
+  osrmTimer = setTimeout(() => fetchDrivingRoute(lls, lids, cacheKey), 400);
+}
+
+async function fetchDrivingRoute(lls, lids, cacheKey) {
+  if (lls.length < 2) return;
+  if (osrmCacheKey === cacheKey) return;
+  try {
+    // Insert bypass waypoint for crossing legs unless overridden
+    const waypoints = [];
+    for (let i = 0; i < lls.length; i++) {
+      if (i > 0 && CONSTRUCTION.active &&
+          crossesConstruction(lls[i-1][0], lls[i-1][1], lls[i][0], lls[i][1]) &&
+          !constructionOverrides.has(legKey(lids[i-1], lids[i]))) {
+        waypoints.push([CONSTRUCTION.bypassPt.lat, CONSTRUCTION.bypassPt.lon]);
+      }
+      waypoints.push(lls[i]);
+    }
+    const coords = waypoints.map(([lat, lon]) => `${lon},${lat}`).join(';');
+    const r = await fetch(
+      `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson&continue_straight=false`
+    );
+    if (!r.ok) return;
+    const data = await r.json();
+    if (data.code !== 'Ok' || !data.routes?.[0]?.geometry) return;
+    osrmCacheKey = cacheKey;
+    if (!lmap) return;
+    // Replace placeholder with real road geometry
+    if (routePolyline) { lmap.removeLayer(routePolyline); routePolyline = null; }
+    const geom = data.routes[0].geometry.coordinates.map(([lon, lat]) => [lat, lon]);
+    routePolyline = L.polyline(geom, {color:'#38bdf8', weight:3, opacity:.75}).addTo(lmap);
+  } catch(_) {
+    // Keep the straight-line placeholder on network error
+  }
+}
+function toggleConstructionBypass(fromLid, toLid) {
+  const k = legKey(fromLid, toLid);
+  if (constructionOverrides.has(k)) constructionOverrides.delete(k);
+  else constructionOverrides.add(k);
+  osrmCacheKey = null; // force OSRM re-fetch
+  save(); renderRoute(); refreshMapPolyline();
+}
+function toggleRain(){
+  rainMode=!rainMode;
+  document.getElementById('rain-btn').classList.toggle('on',rainMode);
+  setRoute(); renderRoute(); save();
+}
+function updateBadge(){ document.getElementById('spp-badge').textContent=`${checked.size} spp`; }
+
+// =====================================================================
+// TABS
+// =====================================================================
+function showTab(name, btn) {
+  document.querySelectorAll('.pane').forEach(p=>p.classList.remove('on'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
+  document.getElementById('pane-'+name).classList.add('on');
+  btn.classList.add('on');
+  if (name==='map')     initMap();
+  if (name==='species') filterSpecies();
+  if (name==='stats')   renderStats();
+}
+
+// =====================================================================
+// MAP
+// =====================================================================
+function initMap() {
+  if (!D||mapInited) return;
+  mapInited = true;
+  lmap = L.map('map').setView([D.metadata.center_lat,D.metadata.center_lon],11);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    {attribution:'© OpenStreetMap',maxZoom:18}).addTo(lmap);
+
+  // Construction zone overlay (Route 6 / Golden Mile Rd, Towanda → Wysox)
+  if (CONSTRUCTION.active) {
+    constrLayer = L.polygon([
+      [41.780, -76.450], [41.780, -76.385],
+      [41.745, -76.385], [41.745, -76.450],
+    ], {color:'#f97316', weight:2, fillColor:'#f97316', fillOpacity:0.10, dashArray:'6 4'})
+    .addTo(lmap)
+    .bindPopup(`<div class="mp"><strong>🚧 ${CONSTRUCTION.label}</strong><br>${CONSTRUCTION.detail}</div>`);
+  }
+
+  // Initial markers and polyline via shared refresh function
+  refreshMapPolyline();
+
+  // Add any already-toggled food stops
+  D.food_stops.forEach(fs => { if (foodAdded.has(fs.lid)) addFoodMarker(fs.lid); });
+}
+
+// =====================================================================
+// ALL SPECIES TAB
+// =====================================================================
+function renderAllSp() { if (D) filterSpecies(); }
+
+function setSPFilter(f,btn) {
+  spFilter=f;
+  document.querySelectorAll('.spf').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  filterSpecies();
+}
+function setSPSort(mode) {
+  spSortMode = mode;
+  document.querySelectorAll('#sp-sort-row .spsort').forEach(b=>b.classList.remove('on'));
+  document.getElementById('spsort-'+mode)?.classList.add('on');
+  filterSpecies();
+}
+function setStopSort(lid, mode) {
+  stopSortMode[lid] = mode;
+  const se = schedule().find(s=>s.lid===lid);
+  const body = document.querySelector(`#stop-${lid} .sbody`);
+  if (body) body.innerHTML = renderBody(lid, !!D.sites[lid]?.food, se);
+}
+
+function filterSpecies() {
+  if (!D) return;
+  const q=(document.getElementById('spearch')?.value||'').toLowerCase();
+  let list=[...D.all_species||[]];
+  if (spFilter==='unseen')   list=list.filter(s=>!checked.has(s.name));
+  else if (spFilter==='seen') list=list.filter(s=>checked.has(s.name));
+  else if (spFilter==='nocturnal') list=list.filter(s=>s.flags?.length);
+  if (q) list=list.filter(s=>s.name.toLowerCase().includes(q));
+
+  // Unseen at top, seen (crossed-out) at bottom; within each group sort by mode
+  if (spFilter === 'all' || spFilter === 'nocturnal') {
+    list.sort((a, b) => {
+      const ca = checked.has(a.name), cb = checked.has(b.name);
+      if (ca !== cb) return ca ? 1 : -1;
+      if (spSortMode === 'taxon') return (a.taxon_order ?? 99999) - (b.taxon_order ?? 99999);
+      return (b.freq ?? -1) - (a.freq ?? -1);
+    });
+  } else {
+    // seen/unseen filter — still respect sort mode within group
+    list.sort((a, b) => {
+      if (spSortMode === 'taxon') return (a.taxon_order ?? 99999) - (b.taxon_order ?? 99999);
+      return (b.freq ?? -1) - (a.freq ?? -1);
+    });
+  }
+
+  let rowNum = 0;
+  const rows = list.map(sp=>{
+    const ck=checked.has(sp.name);
+    if (!ck) rowNum++;
+    const names=(sp.sites||[]).map(lid=>shortN(D.sites[lid]?.name||lid)).join(', ');
+    let flags='';
+    if (sp.flags?.includes('predawn')) flags+='🌙';
+    if (sp.flags?.includes('evening')) flags+='🌅';
+    const tier = sp.tier || freqTier(sp.freq);
+    const freqHtml = tier
+      ? `<span class="asfreq ${tier}" title="May 7-11 county frequency">${sp.freq?.toFixed(0)}%</span>`
+      : '';
+    const numHtml = ck ? '<span class="asnr"></span>' : `<span class="asnr">${rowNum}</span>`;
+    return `<div class="asr" data-sp="${sp.name.replace(/"/g,'&quot;')}">
+      ${numHtml}
+      <input class="ascb" type="checkbox"${ck?' checked':''}>
+      <span class="asname${ck?' ck':''}">${sp.name}</span>
+      ${flags?`<span class="asflag">${flags}</span>`:''}
+      ${freqHtml}
+      <span class="assites" title="${names}">${names}</span>
+    </div>`;
+  }).join('');
+
+  const container = document.getElementById('allsplist');
+  container.innerHTML = rows || '<div style="padding:20px;color:var(--muted);text-align:center">No matches</div>';
+}
+
+// Event delegation for all-species tab
+document.addEventListener('click', e=>{
+  const row = e.target.closest('.asr');
+  if (!row || !row.dataset.sp) return;
+  const sp = row.dataset.sp;
+  if (checked.has(sp)) { checked.delete(sp); syncedSp.delete(sp); } else checked.add(sp);
+  save(); updateBadge();
+  // Re-sort the full list so the toggled item moves to the right group
+  filterSpecies();
+});
+
+// =====================================================================
+// STATS
+// =====================================================================
+function renderStats() {
+  if (!D) return;
+  const totalSpp = D.all_species?.length||0;
+  const seenSpp  = checked.size;
+  const pct      = totalSpp?Math.round(seenSpp/totalSpp*100):0;
+  const vd = Object.values(vstatus).filter(v=>v==='done'||v==='arrived').length;
+  const vs = Object.values(vstatus).filter(v=>v==='skipped').length;
+  const totalStops = routeOrder.length;
+  const uniqueSeen = (D.all_species||[]).filter(s=>s.sites?.length===1&&checked.has(s.name)).length;
+
+  const last=schedule().slice(-1)[0];
+  const finStr=last?fmt(last.arriveMin+bm(last.lid)):'—';
+
+  // Habitat coverage
+  const habSeen={}, habTot={};
+  for (const lid of routeOrder) {
+    const s=D.sites[lid];
+    if (!s?.species) continue;
+    const h=s.habitat;
+    if (!habTot[h]) habTot[h]=new Set();
+    s.species.forEach(sp=>{ habTot[h].add(sp); if (checked.has(sp)) { if(!habSeen[h]) habSeen[h]=new Set(); habSeen[h].add(sp); } });
+  }
+
+  let habHtml='';
+  for (const [h,col] of Object.entries(HCOLORS)) {
+    if (h==='food'||!habTot[h]) continue;
+    const n=(habSeen[h]||new Set()).size, tot=(habTot[h]||new Set()).size||1;
+    const p=Math.round(n/tot*100);
+    habHtml+=`<div class="hrow">
+      <span style="width:60px;color:${col}">${h}</span>
+      <div class="hbar-bg"><div class="hbar-fg" style="background:${col};width:${p}%"></div></div>
+      <span style="width:40px;text-align:right;color:var(--muted)">${n}/${tot}</span>
+    </div>`;
+  }
+
+  document.getElementById('stats-body').innerHTML = `
+    <div style="padding:14px">
+      <div class="strow">
+        <div class="stcard"><div class="sttitle">Species</div><div class="stval">${seenSpp}</div>
+          <div style="color:var(--muted);font-size:11px">of ${totalSpp} targets (${pct}%)</div></div>
+        <div class="stcard"><div class="sttitle">★ Exclusive</div><div class="stval">${uniqueSeen}</div>
+          <div style="color:var(--muted);font-size:11px">single-site birds</div></div>
+      </div>
+      <div class="strow">
+        <div class="stcard"><div class="sttitle">Stops done</div><div class="stval">${vd}</div>
+          <div style="color:var(--muted);font-size:11px">of ${totalStops} · ${vs} skipped</div></div>
+        <div class="stcard"><div class="sttitle">Est. finish</div>
+          <div class="stval" style="font-size:22px">${finStr}</div></div>
+      </div>
+      <div class="stcard"><div class="sttitle">Coverage by Habitat</div>${habHtml}</div>
+      <div class="stcard" style="font-size:11px;color:var(--muted)">
+        Data: your personal eBird records (May, Bradford County).
+        Adding full PA/NY eBird data will expand species targets.
+      </div>
+    </div>`;
+}
+
+// =====================================================================
+// EBIRD SYNC
+// =====================================================================
+function normalizeSpJS(name) {
+  if (!name) return null;
+  if (/\bsp\.\s*$/.test(name)) return null;
+  if (name.includes('/')) return null;
+  if (/\bx\b/.test(name)) return null;
+  return name.replace(/\s*\([^)]+\)\s*$/, '').trim() || null;
+}
+
+function saveSyncSettings() {
+  const key  = document.getElementById('sync-key')?.value  || '';
+  const user = document.getElementById('sync-user')?.value || '';
+  const date = document.getElementById('sync-date')?.value || '';
+  if (key)  localStorage.setItem('ebird_sync_key',  key);
+  localStorage.setItem('ebird_sync_user', user);
+  if (date) {
+    const prevDate = localStorage.getItem('ebird_sync_date') || '';
+    if (date !== prevDate && syncedSp.size > 0) {
+      syncedSp.forEach(sp => checked.delete(sp));
+      syncedSp.clear();
+      save(); updateBadge(); renderRoute();
+    }
+    localStorage.setItem('ebird_sync_date', date);
+  }
+}
+
+function loadSyncSettings() {
+  const key  = localStorage.getItem('ebird_sync_key')  || '';
+  const user = localStorage.getItem('ebird_sync_user') || '';
+  const date = localStorage.getItem('ebird_sync_date') || (D?.metadata?.target_date) || '2026-05-09';
+  const ki = document.getElementById('sync-key');
+  const ui = document.getElementById('sync-user');
+  const di = document.getElementById('sync-date');
+  if (ki) ki.value = key;
+  if (ui) ui.value = user;
+  if (di) di.value = date;
+  if (key) setSyncStatus('Ready — click Sync now or enable Auto');
+}
+
+function toggleSyncPanel() {
+  document.getElementById('sync-panel').classList.toggle('on');
+}
+
+function setSyncStatus(msg) {
+  const el = document.getElementById('sync-status');
+  if (el) el.textContent = msg;
+}
+
+async function syncEbird() {
+  const key = (document.getElementById('sync-key')?.value.trim())
+            || localStorage.getItem('ebird_sync_key') || '';
+  if (!key) {
+    setSyncStatus('⚠ Enter your eBird API key first');
+    document.getElementById('sync-panel').classList.add('on');
+    return;
+  }
+  const user = ((document.getElementById('sync-user')?.value.trim())
+              || localStorage.getItem('ebird_sync_user') || '').toLowerCase();
+  const dateStr = document.getElementById('sync-date')?.value
+               || localStorage.getItem('ebird_sync_date')
+               || D.metadata.target_date || '2026-05-09';
+  const [yr, mo, dy] = dateStr.split('-');
+  setSyncStatus(`Fetching Bradford Co. obs for ${dateStr}…`);
+  try {
+    // Use historic endpoint (returns all obs for the day, includes userDisplayName at detail=full)
+    const url = `https://api.ebird.org/v2/data/obs/US-PA-015/historic/${yr}/${parseInt(mo)}/${parseInt(dy)}` +
+                `?maxResults=10000&includeProvisional=true&detail=full`;
+    const r = await fetch(url, { headers: { 'X-eBirdApiToken': key } });
+    if (!r.ok) { setSyncStatus(`⚠ eBird API error ${r.status}`); return; }
+    const obs = await r.json();
+
+    // Deduplicate: one entry per species per checklist — collect unique species
+    let filtered = obs;
+    let matchedCount = obs.length;
+    if (user) {
+      // Case-insensitive partial match on userDisplayName
+      filtered = obs.filter(o => (o.userDisplayName||'').toLowerCase().includes(user));
+      matchedCount = filtered.length;
+      if (matchedCount === 0 && obs.length > 0) {
+        // Name didn't match — show available names to help user
+        const names = [...new Set(obs.map(o=>o.userDisplayName).filter(Boolean))].slice(0,5).join(', ');
+        setSyncStatus(`⚠ No obs matched "${user}". Observers today: ${names}`);
+        return;
+      }
+    }
+    const newSp = [], alreadySp = [];
+    for (const o of filtered) {
+      const sp = normalizeSpJS(o.comName);
+      if (!sp) continue;
+      if (checked.has(sp)) { if (!alreadySp.includes(sp)) alreadySp.push(sp); }
+      else { checked.add(sp); syncedSp.add(sp); if (!newSp.includes(sp)) newSp.push(sp); }
+    }
+    save(); updateBadge(); renderRoute();
+    if (document.getElementById('pane-species').classList.contains('on')) filterSpecies();
+    const now = new Date();
+    const t = `${now.getHours()}:${String(now.getMinutes()).padStart(2,'0')}`;
+    const scope = user ? `${matchedCount} obs from "${user}"` : `${obs.length} obs, all Bradford Co.`;
+    const newLabel = newSp.length
+      ? `+${newSp.length} new: ${newSp.slice(0,5).join(', ')}${newSp.length>5?'…':''}`
+      : `+0 new (${alreadySp.length} already checked)`;
+    setSyncStatus(`✓ ${t} — ${scope} · ${newLabel}`);
+  } catch(e) {
+    setSyncStatus(`⚠ Fetch failed: ${e.message||e}`);
+  }
+}
+
+function importCSV(input) {
+  const file = input.files[0];
+  if (!file) return;
+  setSyncStatus(`Reading ${file.name}…`);
+  const reader = new FileReader();
+  reader.onload = e => {
+    const lines = e.target.result.split('\n');
+    if (!lines.length) { setSyncStatus('⚠ Empty file'); return; }
+    // Find "Common Name" column index
+    const header = lines[0].split(',').map(h => h.replace(/^"|"$/g,'').trim());
+    const col = header.findIndex(h => h.toLowerCase() === 'common name');
+    if (col < 0) { setSyncStatus('⚠ No "Common Name" column found'); return; }
+    const newSp = [], alreadySp = [];
+    for (let i = 1; i < lines.length; i++) {
+      // Handle quoted CSV fields
+      const fields = lines[i].match(/(".*?"|[^,]+)(?=,|$)/g);
+      if (!fields || !fields[col]) continue;
+      const raw = fields[col].replace(/^"|"$/g,'').trim();
+      const sp = normalizeSpJS(raw);
+      if (!sp) continue;
+      if (checked.has(sp)) { if (!alreadySp.includes(sp)) alreadySp.push(sp); }
+      else { checked.add(sp); syncedSp.add(sp); if (!newSp.includes(sp)) newSp.push(sp); }
+    }
+    save(); updateBadge(); renderRoute();
+    if (document.getElementById('pane-species').classList.contains('on')) filterSpecies();
+    const newLabel = newSp.length
+      ? `+${newSp.length} new: ${newSp.slice(0,5).join(', ')}${newSp.length>5?'…':''}`
+      : `+0 new (${alreadySp.length} already checked)`;
+    setSyncStatus(`✓ ${file.name} · ${newLabel}`);
+    // Reset input so same file can be re-imported
+    input.value = '';
+  };
+  reader.readAsText(file);
+}
+
+function saveCustomStops() {
+  localStorage.setItem(SK + '_custom', JSON.stringify(customStops));
+}
+function loadCustomStops() {
+  try { const r = localStorage.getItem(SK + '_custom'); if (r) customStops = JSON.parse(r); } catch(_) {}
+}
+async function addCustomStop() {
+  const raw = (document.getElementById('custom-stop-url')?.value || '').trim();
+  if (!raw) return;
+  const subMatch = raw.match(/\bS(\d{6,})\b/);
+  const locMatch = raw.match(/\bL(\d{4,})\b/);
+  let lid = null, name = null, lat = null, lon = null, subId = null;
+  const key = (document.getElementById('sync-key')?.value.trim()) || localStorage.getItem('ebird_sync_key') || '';
+
+  // Manual coordinate entry: "Name, lat, lon"
+  const coordMatch = !subMatch && !locMatch && raw.match(/^(.+?),\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/);
+  if (coordMatch) {
+    name = coordMatch[1].trim();
+    lat  = parseFloat(coordMatch[2]);
+    lon  = parseFloat(coordMatch[3]);
+    // Stable lid from rounded coordinates
+    lid  = 'Lman_' + Math.round(lat * 1e4) + '_' + Math.round(lon * 1e4).toString().replace('-', 'n');
+  }
+
+  // Fast path: locId already in personal data — no API call needed
+  if (locMatch) {
+    const pl = D.personal_locations?.['L' + locMatch[1]];
+    if (pl) { lid = 'L' + locMatch[1]; name = pl.name; lat = pl.lat; lon = pl.lon; }
+  }
+
+  if (!lid) {
+    if (!key) { setSyncStatus('⚠ Enter your eBird API key first'); document.getElementById('sync-panel').classList.add('on'); return; }
+    setSyncStatus('Fetching location info…');
+    try {
+      if (subMatch) {
+        subId = 'S' + subMatch[1];
+        const r = await fetch(`https://api.ebird.org/v2/product/checklist/view/${subId}`, { headers: {'X-eBirdApiToken': key} });
+        if (!r.ok) { setSyncStatus(`⚠ Checklist ${subId} not found (${r.status})`); return; }
+        const text = await r.text();
+        if (!text || !text.trim()) {
+          setSyncStatus(`⚠ Atlas checklist not accessible via API. Enter manually: "Name, lat, lon" — e.g. "River Access, 41.82, -76.58"`);
+          return;
+        }
+        let cl;
+        try { cl = JSON.parse(text); } catch(_) {
+          setSyncStatus(`⚠ Unexpected response for ${subId}. Enter manually: "Name, lat, lon"`);
+          return;
+        }
+        console.log('[addCustomStop] checklist response:', JSON.stringify(cl).substring(0, 800));
+        lid = cl.locId || cl.loc?.locId;
+        if (!lid) { setSyncStatus('⚠ Checklist has no location ID'); return; }
+        const pl = D.personal_locations?.[lid];
+        if (pl) { name = pl.name; lat = pl.lat; lon = pl.lon; }
+        else {
+          // Try every known field path — Atlas/personal locations vary in structure
+          lat  = cl.loc?.lat ?? cl.loc?.latitude ?? cl.lat ?? cl.latitude ?? null;
+          lon  = cl.loc?.lng ?? cl.loc?.longitude ?? cl.lng ?? cl.longitude ?? null;
+          name = cl.loc?.locName || cl.loc?.name || cl.locName || null;
+        }
+      } else if (locMatch) {
+        lid = 'L' + locMatch[1];
+      } else {
+        setSyncStatus('⚠ Paste a checklist URL (ebird.org/checklist/S…), hotspot URL, or type a location name');
+        return;
+      }
+      if (!name || lat == null) {
+        const hr = await fetch(`https://api.ebird.org/v2/ref/hotspot/info/${lid}`, { headers: {'X-eBirdApiToken': key} });
+        if (hr.ok) {
+          const hs = await hr.json();
+          name = name || hs.name || hs.locName || lid;
+          if (lat  == null) lat  = hs.latitude  ?? hs.lat;
+          if (lon == null) lon = hs.longitude ?? hs.lng;
+        } else if (lat != null && lon != null) {
+          name = name || lid; // private/Atlas location with known coords — proceed
+        } else {
+          setSyncStatus(`⚠ ${lid} is a private or Atlas location and no coordinates found. Check the browser console for details.`); return;
+        }
+      }
+    } catch(e) { setSyncStatus(`⚠ Fetch failed: ${e.message}`); return; }
+  }
+  if (lat == null || lon == null) { setSyncStatus('⚠ Could not determine coordinates for this location'); return; }
+
+  // If this location is already in the route, create a numbered duplicate lid
+  let isDup = false;
+  if (routeOrder.includes(lid) || customStops.find(s => s.lid === lid)) {
+    const origLid = lid;
+    let n = 2;
+    while (routeOrder.includes(origLid + '_dup' + n) || customStops.find(s => s.lid === origLid + '_dup' + n)) n++;
+    lid = origLid + '_dup' + n;
+    // Copy all site data (species, freqs, habitat) from the original
+    if (D.sites[origLid]) {
+      D.sites[lid] = { ...D.sites[origLid], _custom: true, _dup_of: origLid };
+      if (D.site_freq_override?.[origLid]) {
+        D.site_freq_override[lid] = D.site_freq_override[origLid];
+      }
+    }
+    isDup = true;
+    setSyncStatus(`✓ Added: ${name} (visit ${n})`);
+  }
+
+  if (!isDup) {
+    // Build site entry — look up pre-computed data first, then API fallback
+    const lsEntry = D.location_species?.[lid];
+    let species = [], habitat = classifyHabitatJS(name), list_count = 0, avg_duration = null, std_duration = null;
+    if (lsEntry) {
+      species    = lsEntry.sp.map(([sp]) => sp);
+      habitat    = lsEntry.hab || habitat;
+      list_count = lsEntry.n;
+      avg_duration = lsEntry.avg ?? null;
+      std_duration = lsEntry.std ?? null;
+      D.site_freq_override = D.site_freq_override || {};
+      D.site_freq_override[lid] = Object.fromEntries(lsEntry.sp);
+      setSyncStatus(`✓ Added: ${name} (${species.length} target species from local data)`);
+    } else if (key) {
+      setSyncStatus(`Fetching species data from eBird for ${name}…`);
+      const fetched = await fetchLocationSpeciesAPI(lid, key);
+      if (fetched) {
+        species    = fetched.sp.map(([sp]) => sp);
+        list_count = fetched.n;
+        D.site_freq_override = D.site_freq_override || {};
+        D.site_freq_override[lid] = Object.fromEntries(fetched.sp);
+        setSyncStatus(`✓ Added: ${name} (${species.length} target species from eBird)`);
+      } else {
+        setSyncStatus(`✓ Added: ${name} (no species data found)`);
+      }
+    } else {
+      setSyncStatus(`✓ Added: ${name} (no API key — species data unavailable)`);
+    }
+    D.sites[lid] = {
+      name, lat, lon, habitat, list_count,
+      avg_duration, std_duration, n_dur: list_count,
+      species, unique_species: [], rare_species: [],
+      _custom: true,
+    };
+  }
+  customStops.push({ lid, name, lat, lon, subId });
+  insertOptimalPosition(lid, lat, lon);
+  document.getElementById('custom-stop-url').value = '';
+  saveCustomStops(); renderRoute(); refreshMapPolyline(); renderCustomStopsList();
+}
+function removeStop(lid) {
+  const idx = routeOrder.indexOf(lid);
+  if (idx >= 0) routeOrder.splice(idx, 1);
+  if (D?.sites[lid]?._custom) {
+    // Custom stop — full removal
+    customStops = customStops.filter(s => s.lid !== lid);
+    delete D.sites[lid];
+    saveCustomStops();
+  } else {
+    removedStops.add(lid);
+  }
+  save(); renderRoute(); refreshMapPolyline(); renderCustomStopsList(); renderRemovedStopsList();
+}
+function restoreStop(lid) {
+  removedStops.delete(lid);
+  if (!routeOrder.includes(lid)) {
+    insertOptimalPosition(lid, D.sites[lid]?.lat, D.sites[lid]?.lon);
+  }
+  save(); renderRoute(); refreshMapPolyline(); renderRemovedStopsList();
+}
+function removeCustomStop(lid) {
+  removeStop(lid);
+}
+function renderCustomStopsList() {
+  const el = document.getElementById('custom-stops-list');
+  if (!el) return;
+  if (!customStops.length) { el.style.display = 'none'; return; }
+  el.style.display = '';
+  el.innerHTML = '<span style="color:var(--muted);font-size:11px">Custom stops: </span>' +
+    customStops.map(s =>
+      `<span style="display:inline-flex;align-items:center;gap:3px;margin:2px 3px;background:#0c2340;border:1px solid #1d5fa0;border-radius:4px;padding:2px 7px;font-size:11px">` +
+      `<span style="color:#7dd3fc">${s.name.length > 40 ? s.name.slice(0,38)+'…' : s.name}</span>` +
+      `<button onclick="removeCustomStop('${s.lid}')" style="background:none;border:none;color:#ef4444;cursor:pointer;padding:0 1px;font-size:14px;line-height:1;margin-left:2px" title="Remove from route">×</button>` +
+      `</span>`
+    ).join('');
+}
+function renderRemovedStopsList() {
+  const el = document.getElementById('removed-stops-list');
+  if (!el) return;
+  if (!removedStops.size) { el.style.display = 'none'; return; }
+  el.style.display = '';
+  el.innerHTML = '<span style="color:var(--muted);font-size:11px">Removed: </span>' +
+    [...removedStops].map(lid => {
+      const name = D?.sites[lid]?.name || lid;
+      const short = name.length > 40 ? name.slice(0,38)+'…' : name;
+      return `<span style="display:inline-flex;align-items:center;gap:3px;margin:2px 3px;background:#1c0d0d;border:1px solid #7f1d1d;border-radius:4px;padding:2px 7px;font-size:11px">` +
+        `<span style="color:#fca5a5;text-decoration:line-through">${short}</span>` +
+        `<button onclick="restoreStop('${lid}')" style="background:none;border:none;color:#4ade80;cursor:pointer;padding:0 2px;font-size:11px;line-height:1;margin-left:2px" title="Restore to route">↩</button>` +
+        `</span>`;
+    }).join('');
+}
+
+async function ensureTaxonomy(key) {
+  if (ebirdTaxonomy) return true;
+  try {
+    const cached = sessionStorage.getItem('ebird_taxonomy_map');
+    if (cached) { ebirdTaxonomy = new Map(JSON.parse(cached)); return true; }
+  } catch(_) {}
+  setSyncStatus('Loading eBird taxonomy (one-time, ~2s)…');
+  try {
+    const r = await fetch('https://api.ebird.org/v2/ref/taxonomy/ebird?fmt=json',
+                          { headers: { 'X-eBirdApiToken': key } });
+    if (!r.ok) { setSyncStatus(`⚠ Taxonomy fetch failed: ${r.status}`); return false; }
+    const taxa = await r.json();
+    ebirdTaxonomy = new Map(taxa.map(t => [t.speciesCode, t.comName]));
+    try { sessionStorage.setItem('ebird_taxonomy_map', JSON.stringify([...ebirdTaxonomy])); } catch(_) {}
+    return true;
+  } catch(e) { setSyncStatus(`⚠ Taxonomy load failed: ${e.message}`); return false; }
+}
+
+async function syncSubIds() {
+  const key = (document.getElementById('sync-key')?.value.trim())
+            || localStorage.getItem('ebird_sync_key') || '';
+  if (!key) { setSyncStatus('⚠ Enter your eBird API key first'); document.getElementById('sync-panel').classList.add('on'); return; }
+  const raw = document.getElementById('sync-subids')?.value.trim() || '';
+  const subIds = raw.split(/[\s,\n]+/).map(s => s.trim()).filter(s => /^S\d+$/i.test(s));
+  if (!subIds.length) { setSyncStatus('⚠ Enter one or more SubIDs (e.g. S123456789) — found on the eBird checklist page'); return; }
+  if (!await ensureTaxonomy(key)) return;
+  setSyncStatus(`Fetching ${subIds.length} checklist${subIds.length > 1 ? 's' : ''}…`);
+  const newSp = [], alreadySp = [];
+  for (const subId of subIds) {
+    try {
+      const r = await fetch(`https://api.ebird.org/v2/product/checklist/view/${subId}`,
+                            { headers: { 'X-eBirdApiToken': key } });
+      if (!r.ok) { setSyncStatus(`⚠ Checklist ${subId} not found (${r.status})`); return; }
+      const cl = await r.json();
+      for (const o of (cl.obs || [])) {
+        const comName = ebirdTaxonomy.get(o.speciesCode);
+        if (!comName) continue;
+        const sp = normalizeSpJS(comName);
+        if (!sp) continue;
+        if (checked.has(sp)) { if (!alreadySp.includes(sp)) alreadySp.push(sp); }
+        else { checked.add(sp); syncedSp.add(sp); if (!newSp.includes(sp)) newSp.push(sp); }
+      }
+    } catch(e) { setSyncStatus(`⚠ Error fetching ${subId}: ${e.message}`); return; }
+  }
+  save(); updateBadge(); renderRoute();
+  if (document.getElementById('pane-species').classList.contains('on')) filterSpecies();
+  const now = new Date();
+  const t = `${now.getHours()}:${String(now.getMinutes()).padStart(2,'0')}`;
+  const newLabel = newSp.length
+    ? `+${newSp.length} new: ${newSp.slice(0, 5).join(', ')}${newSp.length > 5 ? '…' : ''}`
+    : `+0 new (${alreadySp.length} already checked)`;
+  setSyncStatus(`✓ ${t} — ${subIds.length} checklist${subIds.length > 1 ? 's' : ''} · ${newLabel}`);
+}
+
+function toggleAutoSync() {
+  const btn = document.getElementById('autosync-btn');
+  if (autoSyncInterval) {
+    clearInterval(autoSyncInterval);
+    autoSyncInterval = null;
+    if (btn) btn.classList.remove('on');
+    setSyncStatus('Auto-sync off');
+  } else {
+    autoSyncInterval = setInterval(syncEbird, 5*60*1000);
+    if (btn) btn.classList.add('on');
+    setSyncStatus('Auto-sync on — syncs every 5 min');
+    syncEbird();
+  }
+}
+
+// =====================================================================
+// EXPORT / IMPORT ROUTE SETUP
+// =====================================================================
+function exportSetup() {
+  const data = {
+    version: 1,
+    exported: new Date().toISOString(),
+    routeOrder: [...routeOrder],
+    removedStops: [...removedStops],
+    timeConstraints,
+    foodAdded: [...foodAdded],
+    constructionOverrides: [...constructionOverrides],
+    ithacaDepartTime,
+    birdMins,
+    customStops,
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'bradford_route_setup.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  setSyncStatus('✓ Route setup exported');
+}
+function importSetup(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!Array.isArray(data.routeOrder)) { setSyncStatus('⚠ Invalid setup file'); return; }
+      routeOrder            = data.routeOrder;
+      removedStops          = new Set(data.removedStops || []);
+      timeConstraints       = data.timeConstraints || {};
+      foodAdded             = new Set(data.foodAdded || []);
+      constructionOverrides = new Set(data.constructionOverrides || []);
+      ithacaDepartTime      = data.ithacaDepartTime ?? null;
+      birdMins              = data.birdMins || {};
+      if (data.customStops) { customStops = data.customStops; saveCustomStops(); }
+      setRoute();
+      save(); renderRoute(); refreshMapPolyline(); renderCustomStopsList(); renderRemovedStopsList();
+      setSyncStatus(`✓ Route setup imported (${data.routeOrder.length} stops)`);
+    } catch(err) { setSyncStatus('⚠ Import failed: ' + err.message); }
+  };
+  reader.readAsText(file);
+  input.value = '';
+}
+
+// =====================================================================
+// LEGEND
+// =====================================================================
+function toggleLegend() {
+  document.getElementById('legend-overlay').classList.toggle('on');
+}
+
+// =====================================================================
+// GO
+// =====================================================================
+init();
+</script>
+</body>
+</html>
