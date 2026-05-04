@@ -425,6 +425,10 @@ function fmt(min) {
   const hr = h>12?h-12:(h===0?12:h), ap = h<12?'am':'pm';
   return `${hr}:${m.toString().padStart(2,'0')}${ap}`;
 }
+function aerialUrl(lat, lon) {
+  const d = 0.003;
+  return `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=${lon-d},${lat-d},${lon+d},${lat+d}&bboxSR=4326&size=320,180&format=jpg&f=image`;
+}
 function fmtRange(startMin, durMin) {
   const endMin = startMin + durMin;
   const hOf = m => Math.floor(m/60)%24;
@@ -1110,7 +1114,7 @@ function renderRoute() {
         ${!isFood ? `<div class="mobile-reorder"><button onclick="event.stopPropagation();moveStop('${lid}',-1)" ${isFirst?'disabled':''}>↑</button><button onclick="event.stopPropagation();moveStop('${lid}',1)" ${isLast?'disabled':''}>↓</button></div>` : ''}
         <span class="snum">${++stopNum}</span>
         <span class="sicon">${icon}</span>
-        <div class="snwrap"><div class="sname">${name}</div><div class="ssub">${sub}</div></div>
+        <div class="snwrap"><div class="sname">${/^L\d+$/.test(lid) ? `<a href="https://ebird.org/hotspot/${lid}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="color:inherit;text-decoration:underline;text-decoration-color:var(--muted);text-underline-offset:2px">${name}</a>` : name}</div><div class="ssub">${sub}</div></div>
         ${badge?`<span class="${badgeCls}">${badge}</span>`:''}
         <span class="schev${isOpen?' open':''}">▼</span>
       </div>
@@ -1231,7 +1235,17 @@ function renderBody(lid, isFood, se, foodEstArr=null) {
 
   const hiddenCnt = !showAll ? seenSp.length : 0;
 
-  return `<div class="sact">
+  const isHotspot = /^L\d+$/.test(lid);
+  const aerialImg = site.lat && site.lon
+    ? `<img src="${aerialUrl(site.lat, site.lon)}" loading="lazy" style="width:100%;height:120px;object-fit:cover;border-radius:6px;display:block;margin-bottom:10px" alt="Aerial view of ${name}">`
+    : '';
+  const aerialHtml = aerialImg
+    ? (isHotspot
+        ? `<a href="https://ebird.org/hotspot/${lid}" target="_blank" rel="noopener" title="Open eBird hotspot">${aerialImg}</a>`
+        : aerialImg)
+    : '';
+
+  return aerialHtml + `<div class="sact">
     <button class="btn-here" onclick="markArrived('${lid}')">📍 I'm here</button>
     <button class="btn-done" onclick="markDone('${lid}')">✓ Done</button>
     <button class="btn-skip" onclick="skipStop('${lid}')">⏭ Skip</button>
