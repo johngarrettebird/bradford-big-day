@@ -421,9 +421,19 @@ function confirmReset() {
 // HELPERS
 // =====================================================================
 function fmt(min) {
-  const h=Math.floor(min/60), m=min%60;
+  const h=Math.floor(min/60)%24, m=min%60;
   const hr = h>12?h-12:(h===0?12:h), ap = h<12?'am':'pm';
   return `${hr}:${m.toString().padStart(2,'0')}${ap}`;
+}
+function fmtRange(startMin, durMin) {
+  const endMin = startMin + durMin;
+  const hOf = m => Math.floor(m/60)%24;
+  const hm = m => { const h=hOf(m), mn=m%60, hr=h>12?h-12:(h===0?12:h); return `${hr}:${mn.toString().padStart(2,'0')}`; };
+  const ap = m => hOf(m)<12?'am':'pm';
+  const sap=ap(startMin), eap=ap(endMin);
+  return sap===eap
+    ? `${hm(startMin)}–${hm(endMin)}${eap} (${durMin}m)`
+    : `${hm(startMin)}${sap}–${hm(endMin)}${eap} (${durMin}m)`;
 }
 function shortN(name) {
   return name
@@ -1031,11 +1041,10 @@ function renderRoute() {
 
     let sub = '';
     if (!isFood && se) {
-      sub = fmt(se.arriveMin);
+      sub = fmtRange(se.arriveMin, bm(lid));
       if (se.pinned) sub += ` <span class="pin-badge">📌</span>`;
       if (se.late) sub += ` <span style="color:#ef4444;font-weight:600">⚠ late</span>`;
       if (se.driveMin>0) sub += ` · ${se.driveMin}m drive`;
-      sub += ` · ${bm(lid)}m`;
       if (uniqUnseen>0) sub += ` · ★${uniqUnseen}`;
       // Frequency breakdown of unseen species
       if (D.county_freq && site.species) {
