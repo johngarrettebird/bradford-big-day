@@ -1118,6 +1118,7 @@ function renderRoute() {
         ${!isFood ? `<div class="mobile-reorder"><button onclick="event.stopPropagation();moveStop('${lid}',-1)" ${isFirst?'disabled':''}>↑</button><button onclick="event.stopPropagation();moveStop('${lid}',1)" ${isLast?'disabled':''}>↓</button></div>` : ''}
         <span class="snum">${++stopNum}</span>
         <span class="sicon">${icon}</span>
+        ${!isFood && site.lat && site.lon ? `<img src="${aerialUrl(site.lat, site.lon)}" loading="lazy" style="height:28px;width:45px;object-fit:cover;border-radius:3px;flex-shrink:0;opacity:0.75" alt="">` : ''}
         <div class="snwrap"><div class="sname">${site.hotspot ? `<a href="https://ebird.org/hotspot/${lid}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="color:inherit;text-decoration:underline;text-decoration-color:var(--muted);text-underline-offset:2px">${name}</a>` : name}</div><div class="ssub">${sub}</div></div>
         ${badge?`<span class="${badgeCls}">${badge}</span>`:''}
         <span class="schev${isOpen?' open':''}">▼</span>
@@ -1239,17 +1240,7 @@ function renderBody(lid, isFood, se, foodEstArr=null) {
 
   const hiddenCnt = !showAll ? seenSp.length : 0;
 
-  const isHotspot = !!site.hotspot;
-  const aerialImg = site.lat && site.lon
-    ? `<img src="${aerialUrl(site.lat, site.lon)}" loading="lazy" style="width:100%;height:auto;border-radius:6px;display:block;margin-bottom:10px" alt="Aerial view of ${name}">`
-    : '';
-  const aerialHtml = aerialImg
-    ? (isHotspot
-        ? `<a href="https://ebird.org/hotspot/${lid}" target="_blank" rel="noopener" title="Open eBird hotspot">${aerialImg}</a>`
-        : aerialImg)
-    : '';
-
-  return aerialHtml + `<div class="sact">
+  return `<div class="sact">
     <button class="btn-here" onclick="markArrived('${lid}')">📍 I'm here</button>
     <button class="btn-done" onclick="markDone('${lid}')">✓ Done</button>
     <button class="btn-skip" onclick="skipStop('${lid}')">⏭ Skip</button>
