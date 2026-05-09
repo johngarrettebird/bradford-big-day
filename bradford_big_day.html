@@ -52,10 +52,6 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .sun-divider{display:flex;align-items:center;gap:8px;padding:3px 14px;}
 .sun-div-line{flex:1;height:1px;background:var(--border);}
 .sun-div-label{font-size:11px;color:#f59e0b;white-space:nowrap;}
-.constr-divider{display:flex;align-items:center;gap:8px;padding:3px 14px;}
-.constr-div-line{flex:1;height:1px;background:#f97316;}
-.constr-div-label{font-size:11px;color:#f97316;white-space:nowrap;font-weight:600;}
-.constr-banner{background:#431407;border:1px solid #f97316;border-radius:6px;padding:7px 12px;margin:0 0 10px;font-size:12px;color:#fed7aa;line-height:1.5;}
 .tc-row{display:flex;align-items:center;gap:6px;margin:6px 0 2px;font-size:11px;}
 .tc-input{background:var(--card);border:1px solid var(--border);border-radius:4px;color:var(--text);padding:2px 6px;font-size:12px;width:90px;}
 .sicon{font-size:18px;flex-shrink:0;}
@@ -313,7 +309,6 @@ let stopMarkers = {};
 let routePolyline = null;
 let osrmTimer = null;
 let osrmCacheKey = null;
-let constrLayer = null;
 let routeOrder = [];       // ordered lid array (current mode)
 let expanded = new Set();  // expanded stop lids
 let showAllSp = new Set(); // stops showing already-checked species too
@@ -331,7 +326,6 @@ let sunTimes = null;
 let hourlyWx = null;     // array[24] of {temp,prob,code,wind} for May 9
 const WX_ICONS = {0:'☀️',1:'🌤',2:'⛅',3:'☁️',45:'🌫',51:'🌦',53:'🌦',55:'🌧',
                   61:'🌧',63:'🌧',65:'🌧',80:'🌦',82:'🌧',95:'⛈'};
-let constructionOverrides = new Set(); // "lid1|lid2" legs that skip the construction bypass
 let spSortMode  = 'freq';  // 'freq' | 'taxon' — All Species pane
 let stopSortMode = {};     // lid → 'freq' | 'taxon'
 
@@ -347,29 +341,6 @@ const HCOLORS = {
   park:'#22c55e',forest:'#16a34a',marsh:'#06b6d4',river:'#3b82f6',
   lake:'#818cf8',fluddle:'#f59e0b',general:'#94a3b8',food:'#f97316'
 };
-
-// Construction zone: Rt. 6 / Golden Mile Rd, Towanda S. Main St → Wysox Rt. 187
-// Single-lane flagging 6am–7pm, May 6–11 2026
-const CONSTRUCTION = {
-  active: true,
-  label:  'Rt. 6 construction (Golden Mile Rd, Towanda→Wysox)',
-  detail: 'Single-lane flagging 6am–7pm, ~May 6–11',
-  barrierLon: -76.42,
-  latMin: 41.73,
-  latMax: 41.82,
-  // Bypass waypoint forced into OSRM requests and drive-time estimates when
-  // a leg would cross the barrier. Placed on Ghent Hill Rd (Sheshequin Twp),
-  // north of the construction zone at the same longitude.
-  bypassPt: {lat: 41.871, lon: -76.417},
-};
-function crossesConstruction(lat1, lon1, lat2, lon2) {
-  if (!CONSTRUCTION.active) return false;
-  const b = CONSTRUCTION.barrierLon;
-  if ((lon1 <= b) === (lon2 <= b)) return false; // same side
-  const t = (b - lon1) / (lon2 - lon1);
-  const latAt = lat1 + t * (lat2 - lat1);
-  return latAt >= CONSTRUCTION.latMin && latAt <= CONSTRUCTION.latMax;
-}
 
 // Restaurant hours (Saturday May 9)
 const ITHACA_ORIGIN = {lat: 42.444, lon: -76.502, label: 'Ithaca, NY'};
@@ -388,8 +359,7 @@ function save() {
     checked:[...checked], arrivals, birdMins, vstatus, stopNotes,
     foodAdded:[...foodAdded], rainMode, expanded:[...expanded],
     syncedSp:[...syncedSp], timeConstraints, routeOrder:[...routeOrder],
-    removedStops:[...removedStops], ithacaDepartTime,
-    constructionOverrides:[...constructionOverrides]
+    removedStops:[...removedStops], ithacaDepartTime
   }));
 }
 function loadSave() {
@@ -407,14 +377,13 @@ function loadSave() {
     if (s.routeOrder)       _savedRouteOrder = s.routeOrder;
     if (s.removedStops)     removedStops     = new Set(s.removedStops);
     if (s.ithacaDepartTime != null) ithacaDepartTime = s.ithacaDepartTime;
-    if (s.constructionOverrides) constructionOverrides = new Set(s.constructionOverrides);
     if (s.stopNotes)           stopNotes           = s.stopNotes;
   } catch(e) {}
 }
 function confirmReset() {
   if (!confirm('Reset all checkoffs and stop statuses?')) return;
   localStorage.removeItem(SK);
-  [checked, foodAdded, expanded, showAllSp, syncedSp, removedStops, constructionOverrides].forEach(s => s.clear());
+  [checked, foodAdded, expanded, showAllSp, syncedSp, removedStops].forEach(s => s.clear());
   arrivals = {}; birdMins = {}; vstatus = {}; stopNotes = {};
   renderRoute(); renderAllSp(); updateBadge(); renderRemovedStopsList();
 }
@@ -461,13 +430,7 @@ function _rawMins(la,lo,lb,lb2) {
   const a=Math.sin(dlat/2)**2+Math.cos(la*Math.PI/180)*Math.cos(lb*Math.PI/180)*Math.sin(dlon/2)**2;
   return R*2*Math.asin(Math.sqrt(a))*1.5/35*60;
 }
-function legKey(a, b) { return `${a}|${b}`; }
-function driveMi(la,lo,lb,lb2, fromLid, toLid) {
-  if (CONSTRUCTION.active && crossesConstruction(la, lo, lb, lb2) &&
-      !constructionOverrides.has(legKey(fromLid, toLid))) {
-    const {lat:bla, lon:blo} = CONSTRUCTION.bypassPt;
-    return Math.max(3, Math.round(_rawMins(la,lo,bla,blo) + _rawMins(bla,blo,lb,lb2)));
-  }
+function driveMi(la,lo,lb,lb2) {
   return Math.max(3, Math.round(_rawMins(la,lo,lb,lb2)));
 }
 function scheduleOrigin() {
@@ -477,11 +440,11 @@ function scheduleOrigin() {
 function scheduleBirdOnly() {
   if (!D) return [];
   const {t: t0, lat: oLat, lon: oLon} = scheduleOrigin();
-  let t=t0, pl=oLat, plo=oLon, prevLid=null;
+  let t=t0, pl=oLat, plo=oLon;
   return routeOrder.map(lid => {
     const s = D.sites[lid];
     if (!s) return null;
-    const drv = driveMi(pl, plo, s.lat, s.lon, prevLid, lid);
+    const drv = driveMi(pl, plo, s.lat, s.lon);
     let arr = arrivals[lid] ?? (t + drv);
     const tc = timeConstraints[lid];
     if (tc?.notBefore != null && arr < tc.notBefore) arr = tc.notBefore;
@@ -489,7 +452,7 @@ function scheduleBirdOnly() {
     const item = {lid, arriveMin:arr, driveMin:drv, birdMin:bird, pinned: tc?.notBefore != null,
                   late: tc?.notAfter != null && arr > tc.notAfter};
     t = arr + bird;
-    pl = s.lat; plo = s.lon; prevLid = lid;
+    pl = s.lat; plo = s.lon;
     return item;
   }).filter(Boolean);
 }
@@ -630,16 +593,16 @@ function displayOrder() {
 function schedule() {
   if (!D) return [];
   const {t: t0, lat: oLat, lon: oLon} = scheduleOrigin();
-  let t = t0, pl = oLat, plo = oLon, prevLid = null;
+  let t = t0, pl = oLat, plo = oLon;
   const ord = displayOrder();
   const result = {};
   for (const lid of ord) {
     const site = D.sites[lid];
     if (!site) continue;
-    const drv = driveMi(pl, plo, site.lat, site.lon, prevLid, lid);
+    const drv = driveMi(pl, plo, site.lat, site.lon);
     if (site.food && foodAdded.has(lid)) {
       t += drv + bm(lid);
-      pl = site.lat; plo = site.lon; prevLid = lid;
+      pl = site.lat; plo = site.lon;
     } else if (!site.food) {
       let arr = arrivals[lid] ?? (t + drv);
       const tc = timeConstraints[lid];
@@ -649,7 +612,7 @@ function schedule() {
                      pinned: tc?.notBefore != null,
                      late: tc?.notAfter != null && arr > tc.notAfter};
       t = arr + bird;
-      pl = site.lat; plo = site.lon; prevLid = lid;
+      pl = site.lat; plo = site.lon;
     }
   }
   return routeOrder.map(lid => result[lid]).filter(Boolean);
@@ -682,7 +645,6 @@ async function init() {
         removedStops          = new Set(shared.removedStops || []);
         timeConstraints       = shared.timeConstraints || {};
         foodAdded             = new Set(shared.foodAdded || []);
-        constructionOverrides = new Set(shared.constructionOverrides || []);
         ithacaDepartTime      = shared.ithacaDepartTime ?? null;
         birdMins              = shared.birdMins || {};
         if (shared.stopNotes)   stopNotes = shared.stopNotes;
@@ -955,18 +917,6 @@ function renderRoute() {
   const sm = {}; sched.forEach(s=>sm[s.lid]=s);
   const ord = displayOrder();
 
-  // Pre-compute construction crossings for banner count
-  let constrCrossings = 0;
-  if (CONSTRUCTION.active) {
-    let prevSiteC = null;
-    for (const lid of ord) {
-      const s = D.sites[lid];
-      if (!s) continue;
-      if (prevSiteC && crossesConstruction(prevSiteC.lat, prevSiteC.lon, s.lat, s.lon)) constrCrossings++;
-      prevSiteC = s;
-    }
-  }
-
   let html = '<div id="food-row"><span>+ Add food break:</span>';
   for (const fs of D.food_stops) {
     const a = foodAdded.has(fs.lid);
@@ -975,11 +925,6 @@ function renderRoute() {
     html += `<button class="food-chip${a?' added':''}" onclick="toggleFood('${fs.lid}')" title="${hoursTitle}">${fs.name}${fh?`<span style="font-size:10px;opacity:.7"> ${fh.label}</span>`:''}</button>`;
   }
   html += '</div>';
-
-  if (CONSTRUCTION.active && constrCrossings > 0) {
-    const crossWord = constrCrossings === 1 ? 'crossing' : 'crossings';
-    html += `<div class="constr-banner">🚧 <strong>${constrCrossings} construction ${crossWord}</strong> detected — ${CONSTRUCTION.detail}. Marked below. Reorder stops to minimize.</div>`;
-  }
 
   // Ithaca departure bar
   {
@@ -1009,9 +954,6 @@ function renderRoute() {
   const insertedSunKeys = new Set();
   const origin = scheduleOrigin();
   let prevDepartMin = origin.t;
-  let prevSite = null; // for construction crossing detection
-  let prevLid  = null;
-
   for (let i = 0; i < ord.length; i++) {
     const lid = ord[i];
     const site = D.sites[lid];
@@ -1099,18 +1041,6 @@ function renderRoute() {
       }
     }
 
-    // Construction crossing divider
-    if (CONSTRUCTION.active && prevSite && crossesConstruction(prevSite.lat, prevSite.lon, site.lat, site.lon)) {
-      const k = legKey(prevLid, lid);
-      const isDirect = constructionOverrides.has(k);
-      html += `<div class="constr-divider">
-        <div class="constr-div-line"></div>
-        <span class="constr-div-label">🚧 ${CONSTRUCTION.label}</span>
-        <button onclick="toggleConstructionBypass('${prevLid}','${lid}')" style="font-size:10px;padding:2px 7px;border-radius:10px;border:1px solid ${isDirect?'#ef4444':'#475569'};background:${isDirect?'#450a0a':'transparent'};color:${isDirect?'#fca5a5':'var(--muted)'};cursor:pointer;flex-shrink:0">${isDirect?'⚡ Direct':'🔀 Via Ghent Hill'}</button>
-        <div class="constr-div-line"></div>
-      </div>`;
-    }
-
     const isOpen = expanded.has(lid);
     html += `<div class="${cls}" id="stop-${lid}" data-lid="${lid}"${!isFood?' data-draggable="1"':''}>
       <div class="shead" onclick="toggleStop('${lid}')">
@@ -1129,8 +1059,6 @@ function renderRoute() {
     </div>`;
     if (se) prevDepartMin = se.arriveMin + bm(lid);
     else if (isFood && foodEstArr !== null) prevDepartMin = foodEstArr + bm(lid);
-    prevSite = site;
-    prevLid  = lid;
   }
 
   // Insert any sun events that fall after all stops (e.g. dusk after the last stop)
@@ -1421,31 +1349,21 @@ function refreshMapPolyline() {
   });
   // Rebuild route polyline — straight-line placeholder first, then real roads
   if (routePolyline) { lmap.removeLayer(routePolyline); routePolyline = null; }
-  const lls = [], lids = [];
-  for (const lid of ord) { const s = D.sites[lid]; if (s) { lls.push([s.lat, s.lon]); lids.push(lid); } }
+  const lls = [];
+  for (const lid of ord) { const s = D.sites[lid]; if (s) lls.push([s.lat, s.lon]); }
   if (lls.length > 1) routePolyline = L.polyline(lls, {color:'#38bdf8',weight:1.5,opacity:.3,dashArray:'5 5'}).addTo(lmap);
 
   // Debounce the OSRM fetch so rapid reorders don't spam the API
   clearTimeout(osrmTimer);
-  const cacheKey = lls.map(ll => ll.join(',')).join(';') + '|' + CONSTRUCTION.bypassPt.lat + ',' + CONSTRUCTION.bypassPt.lon + '|' + [...constructionOverrides].sort().join(',');
-  osrmTimer = setTimeout(() => fetchDrivingRoute(lls, lids, cacheKey), 400);
+  const cacheKey = lls.map(ll => ll.join(',')).join(';');
+  osrmTimer = setTimeout(() => fetchDrivingRoute(lls, cacheKey), 400);
 }
 
-async function fetchDrivingRoute(lls, lids, cacheKey) {
+async function fetchDrivingRoute(lls, cacheKey) {
   if (lls.length < 2) return;
   if (osrmCacheKey === cacheKey) return;
   try {
-    // Insert bypass waypoint for crossing legs unless overridden
-    const waypoints = [];
-    for (let i = 0; i < lls.length; i++) {
-      if (i > 0 && CONSTRUCTION.active &&
-          crossesConstruction(lls[i-1][0], lls[i-1][1], lls[i][0], lls[i][1]) &&
-          !constructionOverrides.has(legKey(lids[i-1], lids[i]))) {
-        waypoints.push([CONSTRUCTION.bypassPt.lat, CONSTRUCTION.bypassPt.lon]);
-      }
-      waypoints.push(lls[i]);
-    }
-    const coords = waypoints.map(([lat, lon]) => `${lon},${lat}`).join(';');
+    const coords = lls.map(([lat, lon]) => `${lon},${lat}`).join(';');
     const r = await fetch(
       `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson&continue_straight=false`
     );
@@ -1461,13 +1379,6 @@ async function fetchDrivingRoute(lls, lids, cacheKey) {
   } catch(_) {
     // Keep the straight-line placeholder on network error
   }
-}
-function toggleConstructionBypass(fromLid, toLid) {
-  const k = legKey(fromLid, toLid);
-  if (constructionOverrides.has(k)) constructionOverrides.delete(k);
-  else constructionOverrides.add(k);
-  osrmCacheKey = null; // force OSRM re-fetch
-  save(); renderRoute(); refreshMapPolyline();
 }
 function toggleRain(){
   rainMode=!rainMode;
@@ -1498,16 +1409,6 @@ function initMap() {
   lmap = L.map('map').setView([D.metadata.center_lat,D.metadata.center_lon],11);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
     {attribution:'© OpenStreetMap',maxZoom:18}).addTo(lmap);
-
-  // Construction zone overlay (Route 6 / Golden Mile Rd, Towanda → Wysox)
-  if (CONSTRUCTION.active) {
-    constrLayer = L.polygon([
-      [41.780, -76.450], [41.780, -76.385],
-      [41.745, -76.385], [41.745, -76.450],
-    ], {color:'#f97316', weight:2, fillColor:'#f97316', fillOpacity:0.10, dashArray:'6 4'})
-    .addTo(lmap)
-    .bindPopup(`<div class="mp"><strong>🚧 ${CONSTRUCTION.label}</strong><br>${CONSTRUCTION.detail}</div>`);
-  }
 
   // Initial markers and polyline via shared refresh function
   refreshMapPolyline();
@@ -2077,7 +1978,6 @@ function shareLink() {
     removedStops: [...removedStops],
     timeConstraints,
     foodAdded: [...foodAdded],
-    constructionOverrides: [...constructionOverrides],
     ithacaDepartTime,
     birdMins,
     stopNotes,
@@ -2099,7 +1999,6 @@ function exportSetup() {
     removedStops: [...removedStops],
     timeConstraints,
     foodAdded: [...foodAdded],
-    constructionOverrides: [...constructionOverrides],
     ithacaDepartTime,
     birdMins,
     stopNotes,
@@ -2125,7 +2024,6 @@ function importSetup(input) {
       removedStops          = new Set(data.removedStops || []);
       timeConstraints       = data.timeConstraints || {};
       foodAdded             = new Set(data.foodAdded || []);
-      constructionOverrides = new Set(data.constructionOverrides || []);
       ithacaDepartTime      = data.ithacaDepartTime ?? null;
       birdMins              = data.birdMins || {};
       if (data.stopNotes)   stopNotes = data.stopNotes;
